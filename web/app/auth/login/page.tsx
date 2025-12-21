@@ -8,9 +8,11 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Heart, Mail, Lock, Stethoscope, Shield, ArrowRight, Sparkles } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
+import { useTranslations } from 'next-intl'
 import toast from 'react-hot-toast'
 import AuthInput from '@/components/auth/AuthInput'
 import PhoneInput from '@/components/auth/PhoneInput'
+import LanguageSwitcher from '@/components/LanguageSwitcher'
 import { validatePhoneByCountry, formatPhoneWithCountryCode } from '@/lib/utils/validation'
 
 const loginSchema = z.object({
@@ -30,6 +32,12 @@ function LoginForm() {
   const [otpSent, setOtpSent] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const { login, isAuthenticated, isHydrated } = useAuthStore()
+
+  // Translations
+  const t = useTranslations('auth.login')
+  const tRoles = useTranslations('auth.roles')
+  const tFeatures = useTranslations('features')
+  const tCommon = useTranslations('common')
 
   // Phone input state
   const [countryCode, setCountryCode] = useState('+91')
@@ -107,7 +115,7 @@ function LoginForm() {
       }
 
       login(mockUser, 'mock-token-' + Date.now())
-      toast.success('Login successful!')
+      toast.success(t('loginSuccess'))
 
       // Redirect based on role
       setTimeout(() => {
@@ -116,7 +124,7 @@ function LoginForm() {
         else if (role === 'admin') router.push('/admin/dashboard')
       }, 100)
     } catch (error) {
-      toast.error('Login failed. Please try again.')
+      toast.error(t('loginFailed'))
     } finally {
       setIsLoading(false)
     }
@@ -131,7 +139,7 @@ function LoginForm() {
       return
     }
 
-    toast.success('OTP sent to your phone!')
+    toast.success(t('otpSent'))
     setOtpSent(true)
   }
 
@@ -140,24 +148,24 @@ function LoginForm() {
       case 'doctor':
         return {
           icon: Stethoscope,
-          title: 'Doctor Portal',
-          subtitle: 'Access your practice dashboard',
+          title: t('doctorTitle'),
+          subtitle: t('doctorSubtitle'),
           gradient: 'from-emerald-500 to-teal-600',
           bgGradient: 'from-emerald-50 to-teal-50',
         }
       case 'admin':
         return {
           icon: Shield,
-          title: 'Admin Portal',
-          subtitle: 'Platform administration',
+          title: t('adminTitle'),
+          subtitle: t('adminSubtitle'),
           gradient: 'from-purple-500 to-indigo-600',
           bgGradient: 'from-purple-50 to-indigo-50',
         }
       default:
         return {
           icon: Heart,
-          title: 'Welcome Back',
-          subtitle: 'Your health journey continues here',
+          title: t('title'),
+          subtitle: t('subtitle'),
           gradient: 'from-sky-500 to-cyan-600',
           bgGradient: 'from-sky-50 to-cyan-50',
         }
@@ -180,11 +188,13 @@ function LoginForm() {
             <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
               <Heart className="w-7 h-7 text-white" fill="white" />
             </div>
-            <span className="text-3xl font-bold text-white">SANGMAN</span>
+            <span className="text-3xl font-bold text-white">{tCommon('appName')}</span>
           </Link>
 
           <h1 className="text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
-            Healthcare Made <br />Simple & Accessible
+            {tCommon('tagline').split('&').map((part, i) => (
+              <span key={i}>{part}{i === 0 && <br />}</span>
+            ))}
           </h1>
           <p className="text-xl text-white/80 leading-relaxed max-w-md">
             Join thousands of patients and doctors who trust Sangman for seamless healthcare delivery.
@@ -196,19 +206,19 @@ function LoginForm() {
             <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
               <Sparkles className="w-5 h-5" />
             </div>
-            <span>100% Verified Doctors</span>
+            <span>{tFeatures('verifiedDoctors')}</span>
           </div>
           <div className="flex items-center gap-3 text-white/90">
             <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
               <Sparkles className="w-5 h-5" />
             </div>
-            <span>Instant Appointment Booking</span>
+            <span>{tFeatures('instantBooking')}</span>
           </div>
           <div className="flex items-center gap-3 text-white/90">
             <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
               <Sparkles className="w-5 h-5" />
             </div>
-            <span>Fast Customer Support</span>
+            <span>{tFeatures('fastSupport')}</span>
           </div>
         </div>
       </div>
@@ -216,13 +226,18 @@ function LoginForm() {
       {/* Right Side - Login Form */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-12">
         <div className="w-full max-w-md">
+          {/* Language Switcher */}
+          <div className="flex justify-end mb-4">
+            <LanguageSwitcher variant="dropdown" />
+          </div>
+
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center gap-2 mb-8">
             <div className={`w-10 h-10 bg-gradient-to-br ${roleConfig.gradient} rounded-xl flex items-center justify-center`}>
               <Heart className="w-6 h-6 text-white" fill="white" />
             </div>
             <span className={`text-2xl font-bold bg-gradient-to-r ${roleConfig.gradient} bg-clip-text text-transparent`}>
-              SANGMAN
+              {tCommon('appName')}
             </span>
           </div>
 
@@ -253,7 +268,7 @@ function LoginForm() {
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                Password
+                {t('passwordTab')}
               </button>
               <button
                 type="button"
@@ -264,7 +279,7 @@ function LoginForm() {
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                OTP Login
+                {t('otpTab')}
               </button>
             </div>
 
@@ -272,7 +287,7 @@ function LoginForm() {
               {loginMethod === 'password' ? (
                 <>
                   <AuthInput
-                    label="Email Address"
+                    label={t('emailLabel')}
                     type="email"
                     icon={Mail}
                     error={errors.email?.message}
@@ -280,7 +295,7 @@ function LoginForm() {
                   />
 
                   <AuthInput
-                    label="Password"
+                    label={t('passwordLabel')}
                     type="password"
                     icon={Lock}
                     error={errors.password?.message}
@@ -290,7 +305,7 @@ function LoginForm() {
               ) : (
                 <>
                   <PhoneInput
-                    label="Phone Number"
+                    label={t('phoneLabel')}
                     countryCode={countryCode}
                     onCountryCodeChange={handleCountryCodeChange}
                     onPhoneChange={handlePhoneChange}
@@ -299,7 +314,7 @@ function LoginForm() {
 
                   {otpSent ? (
                     <AuthInput
-                      label="Enter 6-digit OTP"
+                      label={t('otpLabel')}
                       type="text"
                       maxLength={6}
                       error={errors.otp?.message}
@@ -311,7 +326,7 @@ function LoginForm() {
                       onClick={handleSendOTP}
                       className="w-full rounded-xl border-2 border-sky-500 text-sky-600 py-3.5 text-sm font-semibold hover:bg-sky-50 transition-colors"
                     >
-                      Send OTP
+                      {t('sendOtp')}
                     </button>
                   )}
                 </>
@@ -325,11 +340,11 @@ function LoginForm() {
                 {isLoading ? (
                   <>
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Signing in...</span>
+                    <span>{t('signingIn')}</span>
                   </>
                 ) : (
                   <>
-                    <span>Sign In</span>
+                    <span>{t('signIn')}</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -338,24 +353,24 @@ function LoginForm() {
 
             <div className="mt-8 text-center space-y-3">
               <Link href="/auth/forgot-password" className="text-sm text-sky-600 hover:text-sky-700 font-medium">
-                Forgot Password?
+                {t('forgotPassword')}
               </Link>
               <p className="text-sm text-gray-500">
-                Don&apos;t have an account?{' '}
+                {t('noAccount')}{' '}
                 <Link href={`/auth/register?role=${role}`} className="text-sky-600 hover:text-sky-700 font-semibold">
-                  Sign up free
+                  {t('signUpFree')}
                 </Link>
               </p>
             </div>
 
             {/* Role Switch */}
             <div className="mt-8 pt-6 border-t border-gray-100">
-              <p className="text-sm text-center text-gray-500 mb-3">Switch portal:</p>
+              <p className="text-sm text-center text-gray-500 mb-3">{t('switchPortal')}</p>
               <div className="flex gap-2">
                 {[
-                  { role: 'patient', label: 'Patient', gradient: 'from-sky-500 to-cyan-600' },
-                  { role: 'doctor', label: 'Doctor', gradient: 'from-emerald-500 to-teal-600' },
-                  { role: 'admin', label: 'Admin', gradient: 'from-purple-500 to-indigo-600' },
+                  { role: 'patient', label: tRoles('patient'), gradient: 'from-sky-500 to-cyan-600' },
+                  { role: 'doctor', label: tRoles('doctor'), gradient: 'from-emerald-500 to-teal-600' },
+                  { role: 'admin', label: tRoles('admin'), gradient: 'from-purple-500 to-indigo-600' },
                 ].map((r) => (
                   <Link
                     key={r.role}
@@ -376,7 +391,7 @@ function LoginForm() {
           {/* Back to Home */}
           <div className="mt-6 text-center">
             <Link href="/" className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
-              ← Back to Home
+              {tCommon('backToHome')}
             </Link>
           </div>
         </div>
