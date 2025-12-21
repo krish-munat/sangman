@@ -31,7 +31,7 @@ export default function LandingPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-white overflow-x-hidden overflow-y-auto">
+    <div className="min-h-screen bg-white">
       {/* Gradient Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-sky-50 via-white to-emerald-50 pointer-events-none" />
       
