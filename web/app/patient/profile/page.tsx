@@ -1,22 +1,54 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { User, Mail, Phone, Save, X, Edit, AlertTriangle, CheckCircle } from 'lucide-react'
+import { User, Mail, Phone, Save, X, Edit, AlertTriangle, CheckCircle, Calendar, FileText, Heart } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
 import { useForm } from 'react-hook-form'
 import toast from 'react-hot-toast'
 import PhoneInput from '@/components/auth/PhoneInput'
+import DocumentUpload from '@/components/profile/DocumentUpload'
+import FamilyMembersList from '@/components/profile/FamilyMembersList'
 import { validatePhoneByCountry, validateDifferentPhones, COUNTRY_CODES } from '@/lib/utils/validation'
+import { calculateAge, AGE_LIMITS, ProfileDocument } from '@/lib/store/familyStore'
 
 interface ProfileFormData {
   name: string
-  age: number
+  dateOfBirth: string
+  bloodGroup: string
   gender: 'male' | 'female' | 'other'
+  allergies: string
   medicalHistory: string
   emergencyContactName: string
   emergencyContactPhone: string
   emergencyContactRelation: string
 }
+
+const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+
+const RELATION_OPTIONS = [
+  { value: '', label: 'Select Relationship' },
+  { value: 'father', label: 'Father' },
+  { value: 'mother', label: 'Mother' },
+  { value: 'husband', label: 'Husband' },
+  { value: 'wife', label: 'Wife' },
+  { value: 'son', label: 'Son' },
+  { value: 'daughter', label: 'Daughter' },
+  { value: 'brother', label: 'Brother' },
+  { value: 'sister', label: 'Sister' },
+  { value: 'grandfather', label: 'Grandfather' },
+  { value: 'grandmother', label: 'Grandmother' },
+  { value: 'uncle', label: 'Uncle' },
+  { value: 'aunt', label: 'Aunt' },
+  { value: 'nephew', label: 'Nephew' },
+  { value: 'niece', label: 'Niece' },
+  { value: 'cousin', label: 'Cousin' },
+  { value: 'friend', label: 'Friend' },
+  { value: 'colleague', label: 'Colleague' },
+  { value: 'neighbor', label: 'Neighbor' },
+  { value: 'guardian', label: 'Guardian' },
+  { value: 'caretaker', label: 'Caretaker' },
+  { value: 'other', label: 'Other (specify below)' },
+]
 
 export default function ProfilePage() {
   const { user, updateUser, isHydrated } = useAuthStore()
@@ -25,6 +57,11 @@ export default function ProfilePage() {
   const [emergencyPhone, setEmergencyPhone] = useState('')
   const [emergencyPhoneError, setEmergencyPhoneError] = useState<string | undefined>()
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [documents, setDocuments] = useState<ProfileDocument[]>([])
+  const [dateOfBirthError, setDateOfBirthError] = useState<string | undefined>()
+  const [calculatedAge, setCalculatedAge] = useState<number | null>(null)
+  const [selectedRelation, setSelectedRelation] = useState('')
+  const [customRelation, setCustomRelation] = useState('')
 
   const {
     register,
@@ -32,17 +69,40 @@ export default function ProfilePage() {
     formState: { errors },
     reset,
     setValue,
+    watch,
   } = useForm<ProfileFormData>({
     defaultValues: {
       name: '',
-      age: 0,
+      dateOfBirth: '',
+      bloodGroup: '',
       gender: 'male',
+      allergies: '',
       medicalHistory: '',
       emergencyContactName: '',
       emergencyContactPhone: '',
       emergencyContactRelation: '',
     },
   })
+  
+  const watchDateOfBirth = watch('dateOfBirth')
+  
+  // Calculate age when date of birth changes
+  useEffect(() => {
+    if (watchDateOfBirth) {
+      const age = calculateAge(watchDateOfBirth)
+      setCalculatedAge(age)
+      
+      // Validate minimum age
+      if (age < AGE_LIMITS.MIN_ADULT_AGE) {
+        setDateOfBirthError(`You must be at least ${AGE_LIMITS.MIN_ADULT_AGE} years old to create an independent account. For minors, please ask a parent/guardian to create a family profile.`)
+      } else {
+        setDateOfBirthError(undefined)
+      }
+    } else {
+      setCalculatedAge(null)
+      setDateOfBirthError(undefined)
+    }
+  }, [watchDateOfBirth])
 
   // Update form when user changes
   useEffect(() => {
@@ -52,13 +112,20 @@ export default function ProfilePage() {
       
       reset({
         name: userData?.name || '',
-        age: userData?.age || 0,
+        dateOfBirth: userData?.dateOfBirth || '',
+        bloodGroup: userData?.bloodGroup || '',
         gender: userData?.gender || 'male',
+        allergies: userData?.allergies || '',
         medicalHistory: userData?.medicalHistory || '',
         emergencyContactName: emergencyContact?.name || '',
         emergencyContactPhone: emergencyContact?.phone || '',
         emergencyContactRelation: emergencyContact?.relation || '',
       })
+      
+      // Load saved documents
+      if (userData?.documents) {
+        setDocuments(userData.documents)
+      }
 
       // Parse emergency phone if exists
       if (emergencyContact?.phone) {
@@ -70,6 +137,20 @@ export default function ProfilePage() {
           setEmergencyPhone(storedPhone.replace(matchedCountry.code, ''))
         } else {
           setEmergencyPhone(storedPhone.replace(/^\+\d+/, ''))
+        }
+      }
+      
+      // Parse emergency relation
+      if (emergencyContact?.relation) {
+        const isPresetRelation = RELATION_OPTIONS.some(
+          opt => opt.value === emergencyContact.relation.toLowerCase()
+        )
+        if (isPresetRelation) {
+          setSelectedRelation(emergencyContact.relation.toLowerCase())
+          setCustomRelation('')
+        } else {
+          setSelectedRelation('other')
+          setCustomRelation(emergencyContact.relation)
         }
       }
     }
@@ -115,6 +196,16 @@ export default function ProfilePage() {
 
   const onSubmit = async (data: ProfileFormData) => {
     try {
+      // Validate age (must be 18+)
+      if (data.dateOfBirth) {
+        const age = calculateAge(data.dateOfBirth)
+        if (age < AGE_LIMITS.MIN_ADULT_AGE) {
+          setDateOfBirthError(`You must be at least ${AGE_LIMITS.MIN_ADULT_AGE} years old`)
+          toast.error('Minimum age requirement not met')
+          return
+        }
+      }
+      
       // Validate emergency phone
       if (emergencyPhone.length > 0) {
         const phoneValidation = validatePhoneByCountry(emergencyPhone, emergencyCountryCode)
@@ -138,17 +229,25 @@ export default function ProfilePage() {
       const fullEmergencyPhone = emergencyPhone.length > 0 
         ? `${emergencyCountryCode}${emergencyPhone}`
         : ''
+      
+      // Get the final relation value
+      const finalRelation = selectedRelation === 'other' 
+        ? customRelation 
+        : RELATION_OPTIONS.find(opt => opt.value === selectedRelation)?.label || selectedRelation
 
       // Update user in store (this persists to localStorage automatically)
       updateUser({
         name: data.name,
-        age: data.age,
+        dateOfBirth: data.dateOfBirth,
+        bloodGroup: data.bloodGroup,
         gender: data.gender,
+        allergies: data.allergies,
         medicalHistory: data.medicalHistory,
+        documents: documents,
         emergencyContact: {
           name: data.emergencyContactName,
           phone: fullEmergencyPhone,
-          relation: data.emergencyContactRelation,
+          relation: finalRelation,
         },
         updatedAt: new Date().toISOString(),
       })
@@ -163,6 +262,20 @@ export default function ProfilePage() {
       const errorMessage = error?.message || 'Failed to update profile'
       toast.error(errorMessage)
     }
+  }
+  
+  // Document handlers
+  const handleDocumentUpload = (doc: Omit<ProfileDocument, 'id' | 'uploadedAt'>) => {
+    const newDoc: ProfileDocument = {
+      ...doc,
+      id: `doc-${Date.now()}`,
+      uploadedAt: new Date().toISOString(),
+    }
+    setDocuments(prev => [...prev, newDoc])
+  }
+
+  const handleDocumentRemove = (docId: string) => {
+    setDocuments(prev => prev.filter(d => d.id !== docId))
   }
 
   if (!isHydrated) {
@@ -232,27 +345,38 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2 text-neutral-700 dark:text-neutral-300">
-                  Age
+                <label className="block text-sm font-medium mb-2 text-neutral-700 dark:text-neutral-300 flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  <span>Date of Birth</span>
                 </label>
-                <input
-                  {...register('age', {
-                    required: 'Age is required',
-                    min: { value: 1, message: 'Age must be at least 1' },
-                    max: { value: 120, message: 'Age must be less than 120' },
-                    valueAsNumber: true,
-                  })}
-                  type="number"
-                  disabled={!isEditing}
-                  className={`w-full px-4 py-3 rounded-lg border bg-white dark:bg-neutral-800 
-                    text-neutral-900 dark:text-neutral-100
-                    ${!isEditing ? 'bg-neutral-100 dark:bg-neutral-700 cursor-not-allowed' : ''}
-                    ${errors.age ? 'border-red-500' : 'border-neutral-300 dark:border-neutral-600'}
-                    focus:outline-none focus:ring-2 focus:ring-primary-500`}
-                />
-                {errors.age && (
-                  <p className="mt-1 text-sm text-red-500">{errors.age.message}</p>
+                <div className="flex gap-3">
+                  <input
+                    {...register('dateOfBirth', { required: 'Date of birth is required' })}
+                    type="date"
+                    max={new Date().toISOString().split('T')[0]}
+                    disabled={!isEditing}
+                    className={`flex-1 px-4 py-3 rounded-lg border bg-white dark:bg-neutral-800 
+                      text-neutral-900 dark:text-neutral-100
+                      ${!isEditing ? 'bg-neutral-100 dark:bg-neutral-700 cursor-not-allowed' : ''}
+                      ${dateOfBirthError || errors.dateOfBirth ? 'border-red-500' : 'border-neutral-300 dark:border-neutral-600'}
+                      focus:outline-none focus:ring-2 focus:ring-primary-500`}
+                  />
+                  {calculatedAge !== null && (
+                    <div className={`px-4 py-3 rounded-lg flex items-center gap-2 font-semibold ${
+                      calculatedAge < AGE_LIMITS.MIN_ADULT_AGE 
+                        ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' 
+                        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                    }`}>
+                      {calculatedAge} yrs
+                    </div>
+                  )}
+                </div>
+                {(dateOfBirthError || errors.dateOfBirth) && (
+                  <p className="mt-1 text-sm text-red-500">{dateOfBirthError || errors.dateOfBirth?.message}</p>
                 )}
+                <p className="mt-1 text-xs text-neutral-500">
+                  Minimum age: {AGE_LIMITS.MIN_ADULT_AGE} years for independent account
+                </p>
               </div>
 
               <div>
@@ -271,6 +395,27 @@ export default function ProfilePage() {
                   <option value="male">Male</option>
                   <option value="female">Female</option>
                   <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2 text-neutral-700 dark:text-neutral-300 flex items-center gap-2">
+                  <Heart className="w-4 h-4 text-red-500" />
+                  <span>Blood Group</span>
+                </label>
+                <select
+                  {...register('bloodGroup')}
+                  disabled={!isEditing}
+                  className={`w-full px-4 py-3 rounded-lg border bg-white dark:bg-neutral-800 
+                    text-neutral-900 dark:text-neutral-100
+                    ${!isEditing ? 'bg-neutral-100 dark:bg-neutral-700 cursor-not-allowed' : ''}
+                    border-neutral-300 dark:border-neutral-600
+                    focus:outline-none focus:ring-2 focus:ring-primary-500`}
+                >
+                  <option value="">Select Blood Group</option>
+                  {BLOOD_GROUPS.map((bg) => (
+                    <option key={bg} value={bg}>{bg}</option>
+                  ))}
                 </select>
               </div>
 
@@ -305,6 +450,23 @@ export default function ProfilePage() {
                 />
                 <p className="mt-1 text-xs text-neutral-500">Phone cannot be changed</p>
               </div>
+            </div>
+
+            {/* Allergies */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium mb-2 text-neutral-700 dark:text-neutral-300">
+                Known Allergies
+              </label>
+              <input
+                {...register('allergies')}
+                disabled={!isEditing}
+                placeholder="e.g., Peanuts, Penicillin, Dust (separate with commas)"
+                className={`w-full px-4 py-3 rounded-lg border bg-white dark:bg-neutral-800 
+                  text-neutral-900 dark:text-neutral-100
+                  ${!isEditing ? 'bg-neutral-100 dark:bg-neutral-700 cursor-not-allowed' : ''}
+                  border-neutral-300 dark:border-neutral-600
+                  focus:outline-none focus:ring-2 focus:ring-primary-500`}
+              />
             </div>
           </div>
 
@@ -378,32 +540,76 @@ export default function ProfilePage() {
 
               <div>
                 <label className="block text-sm font-medium mb-2 text-neutral-700 dark:text-neutral-300">
-                  Relation
+                  Relationship
                 </label>
-                <input
-                  {...register('emergencyContactRelation', {
-                    required: 'Relation is required',
-                  })}
+                <select
+                  value={selectedRelation}
+                  onChange={(e) => {
+                    setSelectedRelation(e.target.value)
+                    if (e.target.value !== 'other') {
+                      setCustomRelation('')
+                    }
+                  }}
                   disabled={!isEditing}
                   className={`w-full px-4 py-3 rounded-lg border bg-white dark:bg-neutral-800 
                     text-neutral-900 dark:text-neutral-100
                     ${!isEditing ? 'bg-neutral-100 dark:bg-neutral-700 cursor-not-allowed' : ''}
-                    ${errors.emergencyContactRelation ? 'border-red-500' : 'border-neutral-300 dark:border-neutral-600'}
+                    border-neutral-300 dark:border-neutral-600
                     focus:outline-none focus:ring-2 focus:ring-primary-500`}
-                  placeholder="e.g., Father, Mother, Spouse, Sibling"
-                />
-                {errors.emergencyContactRelation && (
-                  <p className="mt-1 text-sm text-red-500">
-                    {errors.emergencyContactRelation.message}
-                  </p>
-                )}
+                >
+                  {RELATION_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </div>
+              
+              {/* Custom Relation Input - Shows when "Other" is selected */}
+              {selectedRelation === 'other' && (
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-neutral-700 dark:text-neutral-300">
+                    Specify Relationship
+                  </label>
+                  <input
+                    type="text"
+                    value={customRelation}
+                    onChange={(e) => setCustomRelation(e.target.value)}
+                    disabled={!isEditing}
+                    className={`w-full px-4 py-3 rounded-lg border bg-white dark:bg-neutral-800 
+                      text-neutral-900 dark:text-neutral-100
+                      ${!isEditing ? 'bg-neutral-100 dark:bg-neutral-700 cursor-not-allowed' : ''}
+                      border-neutral-300 dark:border-neutral-600
+                      focus:outline-none focus:ring-2 focus:ring-primary-500`}
+                    placeholder="e.g., Neighbor, Caregiver, Friend's relative"
+                  />
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Enter the relationship if the person is not a family member
+                  </p>
+                </div>
+              )}
             </div>
+          </div>
+
+          {/* Documents Section */}
+          <div className="bg-white dark:bg-neutral-800 rounded-xl p-6 border border-neutral-200 dark:border-neutral-700 mb-6">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-neutral-900 dark:text-neutral-100">
+              <FileText className="w-5 h-5 text-sky-500" />
+              <span>My Documents</span>
+            </h2>
+            
+            <DocumentUpload
+              documents={documents}
+              onUpload={handleDocumentUpload}
+              onRemove={handleDocumentRemove}
+              label="Upload Medical Documents"
+              hint="Upload medical reports, prescriptions, ID proofs, or insurance documents"
+            />
           </div>
 
           {/* Action Buttons */}
           {isEditing && (
-            <div className="flex gap-4">
+            <div className="flex gap-4 mb-6">
               <button 
                 type="submit" 
                 className="flex items-center gap-2 px-6 py-3 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 transition-colors"
@@ -418,17 +624,40 @@ export default function ProfilePage() {
                   // Reset form to original values
                   if (user) {
                     const userData = user as any
+                    const emergencyContact = userData?.emergencyContact || {}
                     reset({
                       name: userData?.name || '',
-                      age: userData?.age || 0,
+                      dateOfBirth: userData?.dateOfBirth || '',
+                      bloodGroup: userData?.bloodGroup || '',
                       gender: userData?.gender || 'male',
+                      allergies: userData?.allergies || '',
                       medicalHistory: userData?.medicalHistory || '',
-                      emergencyContactName: userData?.emergencyContact?.name || '',
-                      emergencyContactPhone: userData?.emergencyContact?.phone || '',
-                      emergencyContactRelation: userData?.emergencyContact?.relation || '',
+                      emergencyContactName: emergencyContact?.name || '',
+                      emergencyContactPhone: emergencyContact?.phone || '',
+                      emergencyContactRelation: emergencyContact?.relation || '',
                     })
+                    if (userData?.documents) {
+                      setDocuments(userData.documents)
+                    }
+                    // Reset relation dropdown
+                    if (emergencyContact?.relation) {
+                      const isPresetRelation = RELATION_OPTIONS.some(
+                        opt => opt.value === emergencyContact.relation.toLowerCase()
+                      )
+                      if (isPresetRelation) {
+                        setSelectedRelation(emergencyContact.relation.toLowerCase())
+                        setCustomRelation('')
+                      } else {
+                        setSelectedRelation('other')
+                        setCustomRelation(emergencyContact.relation)
+                      }
+                    } else {
+                      setSelectedRelation('')
+                      setCustomRelation('')
+                    }
                   }
                   setEmergencyPhoneError(undefined)
+                  setDateOfBirthError(undefined)
                 }}
                 className="flex items-center gap-2 px-6 py-3 border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 rounded-lg font-medium hover:bg-neutral-100 dark:hover:bg-neutral-700 transition-colors"
               >
@@ -438,6 +667,13 @@ export default function ProfilePage() {
             </div>
           )}
         </form>
+        
+        {/* Family Members Section - Outside the form */}
+        {user?.id && (
+          <div className="mt-8">
+            <FamilyMembersList parentUserId={user.id} />
+          </div>
+        )}
       </div>
     </div>
   )

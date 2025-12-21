@@ -6,13 +6,13 @@ import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Heart, Mail, Lock, Stethoscope, Shield, ArrowRight, Sparkles } from 'lucide-react'
+import { Heart, Mail, Lock, Stethoscope, Shield, ArrowRight, Sparkles, Smartphone } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
-import { useTranslations } from 'next-intl'
 import toast from 'react-hot-toast'
 import AuthInput from '@/components/auth/AuthInput'
 import PhoneInput from '@/components/auth/PhoneInput'
-import LanguageSwitcher from '@/components/LanguageSwitcher'
+import OTPVerificationModal from '@/components/auth/OTPVerificationModal'
+import SimpleLanguageSwitcher from '@/components/SimpleLanguageSwitcher'
 import { validatePhoneByCountry, formatPhoneWithCountryCode } from '@/lib/utils/validation'
 
 const loginSchema = z.object({
@@ -29,20 +29,21 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const role = searchParams.get('role') || 'patient'
   const [loginMethod, setLoginMethod] = useState<'password' | 'otp'>('password')
-  const [otpSent, setOtpSent] = useState(false)
+  const [otpChannel, setOtpChannel] = useState<'phone' | 'email'>('phone')
   const [isLoading, setIsLoading] = useState(false)
   const { login, isAuthenticated, isHydrated } = useAuthStore()
 
-  // Translations
-  const t = useTranslations('auth.login')
-  const tRoles = useTranslations('auth.roles')
-  const tFeatures = useTranslations('features')
-  const tCommon = useTranslations('common')
+  // OTP Modal state
+  const [showOTPModal, setShowOTPModal] = useState(false)
 
   // Phone input state
   const [countryCode, setCountryCode] = useState('+91')
   const [phoneValue, setPhoneValue] = useState('')
   const [phoneError, setPhoneError] = useState<string | undefined>()
+  
+  // Email OTP state
+  const [emailForOTP, setEmailForOTP] = useState('')
+  const [emailError, setEmailError] = useState<string | undefined>()
 
   const {
     register,
@@ -86,28 +87,13 @@ function LoginForm() {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
     try {
-      // Validate phone if OTP login
-      if (loginMethod === 'otp') {
-        const phoneValidation = validatePhoneByCountry(phoneValue, countryCode)
-        if (!phoneValidation.valid) {
-          setPhoneError(phoneValidation.error)
-          toast.error(phoneValidation.error || 'Invalid phone number')
-          setIsLoading(false)
-          return
-        }
-      }
-
       // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 500))
-
-      const fullPhone = loginMethod === 'otp' 
-        ? formatPhoneWithCountryCode(phoneValue, countryCode)
-        : '+919876543210'
 
       const mockUser = {
         id: 'user-' + Date.now(),
         email: data.email || 'user@test.com',
-        phone: fullPhone,
+        phone: '+919876543210',
         role: role as 'patient' | 'doctor' | 'admin',
         name: role === 'doctor' ? 'Dr. Test User' : role === 'admin' ? 'Admin User' : 'Test Patient',
         createdAt: new Date().toISOString(),
@@ -115,7 +101,7 @@ function LoginForm() {
       }
 
       login(mockUser, 'mock-token-' + Date.now())
-      toast.success(t('loginSuccess'))
+      toast.success('Login successful!')
 
       // Redirect based on role
       setTimeout(() => {
@@ -124,23 +110,71 @@ function LoginForm() {
         else if (role === 'admin') router.push('/admin/dashboard')
       }, 100)
     } catch (error) {
-      toast.error(t('loginFailed'))
+      toast.error('Login failed. Please try again.')
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleSendOTP = async () => {
-    // Validate phone before sending OTP
-    const phoneValidation = validatePhoneByCountry(phoneValue, countryCode)
-    if (!phoneValidation.valid) {
-      setPhoneError(phoneValidation.error)
-      toast.error(phoneValidation.error || 'Please enter a valid phone number')
-      return
+  // Validate email format
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!email) {
+      setEmailError('Email is required')
+      return false
+    }
+    if (!emailRegex.test(email)) {
+      setEmailError('Please enter a valid email address')
+      return false
+    }
+    setEmailError(undefined)
+    return true
+  }
+
+  // Handle OTP Login - Opens verification modal
+  const handleOTPLogin = () => {
+    if (otpChannel === 'email') {
+      // Validate email before opening OTP modal
+      if (!validateEmail(emailForOTP)) {
+        toast.error('Please enter a valid email address')
+        return
+      }
+    } else {
+      // Validate phone before opening OTP modal
+      const phoneValidation = validatePhoneByCountry(phoneValue, countryCode)
+      if (!phoneValidation.valid) {
+        setPhoneError(phoneValidation.error)
+        toast.error(phoneValidation.error || 'Please enter a valid phone number')
+        return
+      }
     }
 
-    toast.success(t('otpSent'))
-    setOtpSent(true)
+    setShowOTPModal(true)
+  }
+
+  // Handle OTP verification success
+  const handleOTPSuccess = () => {
+    const fullPhone = otpChannel === 'phone' ? formatPhoneWithCountryCode(phoneValue, countryCode) : ''
+    
+    const mockUser = {
+      id: 'user-' + Date.now(),
+      email: otpChannel === 'email' ? emailForOTP : '',
+      phone: fullPhone,
+      role: role as 'patient' | 'doctor' | 'admin',
+      name: role === 'doctor' ? 'Dr. Test User' : role === 'admin' ? 'Admin User' : 'Test Patient',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+
+    login(mockUser, 'mock-token-' + Date.now())
+    toast.success('Login successful!')
+
+    // Redirect based on role
+    setTimeout(() => {
+      if (role === 'patient') router.push('/patient')
+      else if (role === 'doctor') router.push('/doctor/dashboard')
+      else if (role === 'admin') router.push('/admin/dashboard')
+    }, 100)
   }
 
   const getRoleConfig = () => {
@@ -148,24 +182,24 @@ function LoginForm() {
       case 'doctor':
         return {
           icon: Stethoscope,
-          title: t('doctorTitle'),
-          subtitle: t('doctorSubtitle'),
+          title: 'Doctor Portal',
+          subtitle: 'Access your practice dashboard',
           gradient: 'from-emerald-500 to-teal-600',
           bgGradient: 'from-emerald-50 to-teal-50',
         }
       case 'admin':
         return {
           icon: Shield,
-          title: t('adminTitle'),
-          subtitle: t('adminSubtitle'),
+          title: 'Admin Portal',
+          subtitle: 'Platform administration',
           gradient: 'from-purple-500 to-indigo-600',
           bgGradient: 'from-purple-50 to-indigo-50',
         }
       default:
         return {
           icon: Heart,
-          title: t('title'),
-          subtitle: t('subtitle'),
+          title: 'Welcome Back',
+          subtitle: 'Your health journey continues here',
           gradient: 'from-sky-500 to-cyan-600',
           bgGradient: 'from-sky-50 to-cyan-50',
         }
@@ -188,13 +222,11 @@ function LoginForm() {
             <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
               <Heart className="w-7 h-7 text-white" fill="white" />
             </div>
-            <span className="text-3xl font-bold text-white">{tCommon('appName')}</span>
+            <span className="text-3xl font-bold text-white">SANGMAN</span>
           </Link>
 
           <h1 className="text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
-            {tCommon('tagline').split('&').map((part, i) => (
-              <span key={i}>{part}{i === 0 && <br />}</span>
-            ))}
+            Healthcare Made Simple<br />& Accessible
           </h1>
           <p className="text-xl text-white/80 leading-relaxed max-w-md">
             Join thousands of patients and doctors who trust Sangman for seamless healthcare delivery.
@@ -206,19 +238,19 @@ function LoginForm() {
             <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
               <Sparkles className="w-5 h-5" />
             </div>
-            <span>{tFeatures('verifiedDoctors')}</span>
+            <span>100% Verified Doctors</span>
           </div>
           <div className="flex items-center gap-3 text-white/90">
             <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
               <Sparkles className="w-5 h-5" />
             </div>
-            <span>{tFeatures('instantBooking')}</span>
+            <span>Instant Appointment Booking</span>
           </div>
           <div className="flex items-center gap-3 text-white/90">
             <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
               <Sparkles className="w-5 h-5" />
             </div>
-            <span>{tFeatures('fastSupport')}</span>
+            <span>Fast Customer Support</span>
           </div>
         </div>
       </div>
@@ -227,7 +259,7 @@ function LoginForm() {
       <div className="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-12 relative">
         {/* Language Switcher - Fixed Position */}
         <div className="absolute top-4 right-4 lg:top-6 lg:right-6 z-50">
-          <LanguageSwitcher variant="dropdown" />
+          <SimpleLanguageSwitcher />
         </div>
 
         <div className="w-full max-w-md">
@@ -238,7 +270,7 @@ function LoginForm() {
               <Heart className="w-6 h-6 text-white" fill="white" />
             </div>
             <span className={`text-2xl font-bold bg-gradient-to-r ${roleConfig.gradient} bg-clip-text text-transparent`}>
-              {tCommon('appName')}
+              SANGMAN
             </span>
           </div>
 
@@ -262,116 +294,168 @@ function LoginForm() {
             <div className="flex gap-2 mb-8 p-1.5 bg-gray-100 rounded-xl">
               <button
                 type="button"
-                onClick={() => { setLoginMethod('password'); setOtpSent(false) }}
-                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${
+                onClick={() => setLoginMethod('password')}
+                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
                   loginMethod === 'password'
                     ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                {t('passwordTab')}
+                <Lock className="w-4 h-4" />
+                Password
               </button>
               <button
                 type="button"
-                onClick={() => { setLoginMethod('otp'); setOtpSent(false) }}
-                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all ${
+                onClick={() => setLoginMethod('otp')}
+                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
                   loginMethod === 'otp'
                     ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-500 hover:text-gray-700'
                 }`}
               >
-                {t('otpTab')}
+                <Smartphone className="w-4 h-4" />
+                OTP Login
               </button>
             </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-              {loginMethod === 'password' ? (
-                <>
-                  <AuthInput
-                    label={t('emailLabel')}
-                    type="email"
-                    icon={Mail}
-                    error={errors.email?.message}
-                    {...register('email')}
-                  />
+            {loginMethod === 'password' ? (
+              <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+                <AuthInput
+                  label="Email Address"
+                  type="email"
+                  icon={Mail}
+                  error={errors.email?.message}
+                  {...register('email')}
+                />
 
-                  <AuthInput
-                    label={t('passwordLabel')}
-                    type="password"
-                    icon={Lock}
-                    error={errors.password?.message}
-                    {...register('password')}
-                  />
-                </>
-              ) : (
-                <>
+                <AuthInput
+                  label="Password"
+                  type="password"
+                  icon={Lock}
+                  error={errors.password?.message}
+                  {...register('password')}
+                />
+
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className={`w-full rounded-xl bg-gradient-to-r ${roleConfig.gradient} py-3.5 text-sm font-semibold text-white hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg`}
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Signing in...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Sign In</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </form>
+            ) : (
+              <div className="space-y-5">
+                {/* OTP Channel Toggle */}
+                <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => setOtpChannel('phone')}
+                    className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                      otpChannel === 'phone'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    Phone OTP
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOtpChannel('email')}
+                    className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                      otpChannel === 'email'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    <Mail className="w-4 h-4" />
+                    Email OTP
+                  </button>
+                </div>
+
+                {otpChannel === 'phone' ? (
                   <PhoneInput
-                    label={t('phoneLabel')}
+                    label="Phone Number"
                     countryCode={countryCode}
                     onCountryCodeChange={handleCountryCodeChange}
                     onPhoneChange={handlePhoneChange}
-                    error={phoneError || errors.phone?.message}
+                    error={phoneError}
                   />
-
-                  {otpSent ? (
-                    <AuthInput
-                      label={t('otpLabel')}
-                      type="text"
-                      maxLength={6}
-                      error={errors.otp?.message}
-                      {...register('otp')}
-                    />
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={handleSendOTP}
-                      className="w-full rounded-xl border-2 border-sky-500 text-sky-600 py-3.5 text-sm font-semibold hover:bg-sky-50 transition-colors"
-                    >
-                      {t('sendOtp')}
-                    </button>
-                  )}
-                </>
-              )}
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className={`w-full rounded-xl bg-gradient-to-r ${roleConfig.gradient} py-3.5 text-sm font-semibold text-white hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg`}
-              >
-                {isLoading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>{t('signingIn')}</span>
-                  </>
                 ) : (
-                  <>
-                    <span>{t('signIn')}</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="email"
+                        value={emailForOTP}
+                        onChange={(e) => {
+                          setEmailForOTP(e.target.value)
+                          if (emailError) setEmailError(undefined)
+                        }}
+                        placeholder="Enter your email address"
+                        className={`w-full pl-12 pr-4 py-3.5 rounded-xl border ${
+                          emailError 
+                            ? 'border-red-300 bg-red-50' 
+                            : 'border-gray-200 focus:border-sky-500'
+                        } focus:outline-none focus:ring-2 focus:ring-sky-200 transition-all`}
+                      />
+                    </div>
+                    {emailError && (
+                      <p className="mt-1.5 text-sm text-red-500">{emailError}</p>
+                    )}
+                  </div>
                 )}
-              </button>
-            </form>
+
+                <button
+                  type="button"
+                  onClick={handleOTPLogin}
+                  disabled={otpChannel === 'phone' ? !phoneValue : !emailForOTP}
+                  className={`w-full rounded-xl bg-gradient-to-r ${roleConfig.gradient} py-3.5 text-sm font-semibold text-white hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg`}
+                >
+                  {otpChannel === 'phone' ? <Smartphone className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
+                  Send OTP & Login
+                </button>
+
+                <p className="text-xs text-center text-gray-500">
+                  We'll send a 6-digit verification code to your {otpChannel === 'phone' ? 'phone' : 'email'}
+                </p>
+              </div>
+            )}
 
             <div className="mt-8 text-center space-y-3">
               <Link href="/auth/forgot-password" className="text-sm text-sky-600 hover:text-sky-700 font-medium">
-                {t('forgotPassword')}
+                Forgot Password?
               </Link>
               <p className="text-sm text-gray-500">
-                {t('noAccount')}{' '}
+                Don't have an account?{' '}
                 <Link href={`/auth/register?role=${role}`} className="text-sky-600 hover:text-sky-700 font-semibold">
-                  {t('signUpFree')}
+                  Sign up free
                 </Link>
               </p>
             </div>
 
             {/* Role Switch */}
             <div className="mt-8 pt-6 border-t border-gray-100">
-              <p className="text-sm text-center text-gray-500 mb-3">{t('switchPortal')}</p>
+              <p className="text-sm text-center text-gray-500 mb-3">Switch portal:</p>
               <div className="flex gap-2">
                 {[
-                  { role: 'patient', label: tRoles('patient'), gradient: 'from-sky-500 to-cyan-600' },
-                  { role: 'doctor', label: tRoles('doctor'), gradient: 'from-emerald-500 to-teal-600' },
-                  { role: 'admin', label: tRoles('admin'), gradient: 'from-purple-500 to-indigo-600' },
+                  { role: 'patient', label: 'Patient', gradient: 'from-sky-500 to-cyan-600' },
+                  { role: 'doctor', label: 'Doctor', gradient: 'from-emerald-500 to-teal-600' },
+                  { role: 'admin', label: 'Admin', gradient: 'from-purple-500 to-indigo-600' },
                 ].map((r) => (
                   <Link
                     key={r.role}
@@ -392,11 +476,22 @@ function LoginForm() {
           {/* Back to Home */}
           <div className="mt-6 text-center">
             <Link href="/" className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
-              {tCommon('backToHome')}
+              ← Back to Home
             </Link>
           </div>
         </div>
       </div>
+
+      {/* OTP Verification Modal */}
+      <OTPVerificationModal
+        isOpen={showOTPModal}
+        onClose={() => setShowOTPModal(false)}
+        onSuccess={handleOTPSuccess}
+        phone={otpChannel === 'phone' ? formatPhoneWithCountryCode(phoneValue, countryCode) : undefined}
+        email={otpChannel === 'email' ? emailForOTP : undefined}
+        channel={otpChannel === 'phone' ? 'sms' : 'email'}
+        purpose="login"
+      />
     </div>
   )
 }

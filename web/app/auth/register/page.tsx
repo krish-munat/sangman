@@ -6,12 +6,13 @@ import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Heart, Mail, User, Stethoscope, ArrowRight, CheckCircle, Building2, Sparkles, Lock } from 'lucide-react'
+import { Heart, Mail, User, Stethoscope, ArrowRight, CheckCircle, Building2, Sparkles, Lock, Smartphone } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
 import toast from 'react-hot-toast'
 import AuthInput from '@/components/auth/AuthInput'
 import PhoneInput from '@/components/auth/PhoneInput'
 import PasswordInput from '@/components/auth/PasswordInput'
+import OTPVerificationModal from '@/components/auth/OTPVerificationModal'
 import { validatePhoneByCountry, validatePasswordStrength, formatPhoneWithCountryCode } from '@/lib/utils/validation'
 
 const registerSchema = z.object({
@@ -37,6 +38,10 @@ function RegisterForm() {
   const [phoneValue, setPhoneValue] = useState('')
   const [phoneError, setPhoneError] = useState<string | undefined>()
   const [passwordError, setPasswordError] = useState<string | undefined>()
+  
+  // OTP Verification state
+  const [showOTPModal, setShowOTPModal] = useState(false)
+  const [pendingRegistration, setPendingRegistration] = useState<RegisterFormData | null>(null)
 
   const {
     register,
@@ -79,21 +84,30 @@ function RegisterForm() {
       return
     }
 
+    // Store pending registration data and open OTP modal
+    setPendingRegistration(data)
+    setShowOTPModal(true)
+  }
+
+  // Handle OTP verification success - complete registration
+  const handleOTPSuccess = () => {
+    if (!pendingRegistration) return
+
     try {
       const fullPhone = formatPhoneWithCountryCode(phoneValue, countryCode)
       
       const mockUser = {
         id: 'new-' + Date.now(),
-        email: data.email,
+        email: pendingRegistration.email,
         phone: fullPhone,
         role: role as 'patient' | 'doctor',
-        name: data.name,
+        name: pendingRegistration.name,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }
 
       login(mockUser, 'mock-token')
-      toast.success('Account created successfully!')
+      toast.success('Account created successfully! Phone verified.')
 
       if (role === 'doctor') {
         router.push('/doctor/verification')
@@ -337,9 +351,22 @@ function RegisterForm() {
                 hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed
                 flex items-center justify-center gap-2 shadow-lg mt-6`}
               >
-                {isSubmitting ? 'Creating Account...' : 'Create Account'}
-                <ArrowRight className="w-4 h-4" />
+                {isSubmitting ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  <>
+                    <Smartphone className="w-4 h-4" />
+                    Verify Phone & Create Account
+                  </>
+                )}
               </button>
+
+              <p className="text-xs text-center text-gray-500 mt-3">
+                We'll send a verification code to your phone number
+              </p>
             </form>
 
             <p className="mt-6 text-center text-sm text-gray-500">
@@ -365,6 +392,19 @@ function RegisterForm() {
           </div>
         </div>
       </div>
+
+      {/* OTP Verification Modal */}
+      <OTPVerificationModal
+        isOpen={showOTPModal}
+        onClose={() => setShowOTPModal(false)}
+        onSuccess={handleOTPSuccess}
+        phone={formatPhoneWithCountryCode(phoneValue, countryCode)}
+        email={pendingRegistration?.email}
+        channel="sms"
+        purpose="register"
+        title="Verify Your Phone"
+        subtitle="Enter the 6-digit code sent to your phone to complete registration"
+      />
     </div>
   )
 }
