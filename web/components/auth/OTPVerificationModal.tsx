@@ -1,7 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { X, Phone, Mail, CheckCircle, AlertCircle, Loader2, RefreshCw, Shield } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { 
+  X, Phone, Mail, CheckCircle, AlertCircle, Loader2, RefreshCw, 
+  Shield, Lock, Clock, Sparkles, ArrowRight
+} from 'lucide-react'
 import OTPInput from './OTPInput'
 import { useOTPStore } from '@/lib/store/otpStore'
 import { maskPhoneNumber, maskEmail, formatTimeRemaining, OTP_CONFIG } from '@/lib/utils/otp'
@@ -18,6 +21,40 @@ interface OTPVerificationModalProps {
   subtitle?: string
 }
 
+// Purpose-specific configurations
+const PURPOSE_CONFIG = {
+  login: {
+    icon: Lock,
+    gradient: 'from-sky-500 to-cyan-600',
+    successMessage: 'Login verified successfully!',
+    title: 'Secure Login Verification',
+  },
+  register: {
+    icon: Sparkles,
+    gradient: 'from-emerald-500 to-teal-600',
+    successMessage: 'Account verified successfully!',
+    title: 'Verify Your Account',
+  },
+  'reset-password': {
+    icon: Shield,
+    gradient: 'from-amber-500 to-orange-600',
+    successMessage: 'Identity verified! You can reset your password.',
+    title: 'Verify Your Identity',
+  },
+  'verify-phone': {
+    icon: Phone,
+    gradient: 'from-violet-500 to-purple-600',
+    successMessage: 'Phone number verified!',
+    title: 'Verify Phone Number',
+  },
+  'verify-email': {
+    icon: Mail,
+    gradient: 'from-pink-500 to-rose-600',
+    successMessage: 'Email address verified!',
+    title: 'Verify Email Address',
+  },
+}
+
 export default function OTPVerificationModal({
   isOpen,
   onClose,
@@ -31,6 +68,7 @@ export default function OTPVerificationModal({
 }: OTPVerificationModalProps) {
   const [otpValue, setOtpValue] = useState('')
   const [timeRemaining, setTimeRemaining] = useState('')
+  const [isAnimatingSuccess, setIsAnimatingSuccess] = useState(false)
   
   const {
     currentOTP,
@@ -48,8 +86,11 @@ export default function OTPVerificationModal({
   } = useOTPStore()
 
   const identifier = channel === 'email' ? email! : phone!
-  const displayTitle = title || (channel === 'email' ? 'Verify Your Email' : 'Verify Your Phone')
-  const displaySubtitle = subtitle || `Enter the ${OTP_CONFIG.length}-digit code sent to your ${channel === 'email' ? 'email' : 'phone'}`
+  const config = PURPOSE_CONFIG[purpose]
+  const PurposeIcon = config.icon
+  
+  const displayTitle = title || config.title
+  const displaySubtitle = subtitle || `Enter the ${OTP_CONFIG.length}-digit verification code sent to your ${channel === 'email' ? 'email address' : 'phone number'}`
 
   // Send OTP when modal opens
   useEffect(() => {
@@ -69,68 +110,95 @@ export default function OTPVerificationModal({
     return () => clearInterval(interval)
   }, [currentOTP])
 
-  // Handle close
-  const handleClose = () => {
+  // Handle close with cleanup
+  const handleClose = useCallback(() => {
     setOtpValue('')
+    setIsAnimatingSuccess(false)
     clearOTP()
     onClose()
-  }
+  }, [clearOTP, onClose])
 
   // Handle OTP completion
-  const handleOTPComplete = async (otp: string) => {
+  const handleOTPComplete = useCallback(async (otp: string) => {
     const success = await verifyOTP(otp)
     if (success) {
+      setIsAnimatingSuccess(true)
       setTimeout(() => {
         onSuccess()
         handleClose()
-      }, 1500)
+      }, 2000)
     }
-  }
+  }, [verifyOTP, onSuccess, handleClose])
 
   // Handle verify button click
-  const handleVerify = async () => {
+  const handleVerify = useCallback(async () => {
     if (otpValue.length === OTP_CONFIG.length) {
       await handleOTPComplete(otpValue)
     }
-  }
+  }, [otpValue, handleOTPComplete])
 
   // Handle resend
-  const handleResend = async () => {
+  const handleResend = useCallback(async () => {
     setOtpValue('')
     clearError()
     await resendOTP()
-  }
+  }, [clearError, resendOTP])
+
+  // Handle keyboard events
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') handleClose()
+      if (e.key === 'Enter' && otpValue.length === OTP_CONFIG.length && !isVerifying) {
+        handleVerify()
+      }
+    }
+    if (isOpen) {
+      document.addEventListener('keydown', handleKeyDown)
+      return () => document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isOpen, otpValue, isVerifying, handleClose, handleVerify])
 
   if (!isOpen) return null
 
-  const isVerified = currentOTP?.verified
+  const isVerified = currentOTP?.verified || isAnimatingSuccess
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="otp-modal-title"
+    >
+      {/* Backdrop with blur */}
       <div 
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
         onClick={handleClose}
+        aria-hidden="true"
       />
       
       {/* Modal */}
-      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        {/* Header */}
-        <div className="relative bg-gradient-to-r from-sky-500 to-emerald-500 px-6 py-8 text-white">
+      <div className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+        {/* Header with gradient */}
+        <div className={`relative bg-gradient-to-r ${config.gradient} px-6 py-8 text-white overflow-hidden`}>
+          {/* Decorative elements */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-2xl" />
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-xl" />
+          
           <button
             onClick={handleClose}
-            className="absolute top-4 right-4 p-2 rounded-full bg-white/20 hover:bg-white/30 transition-colors"
+            className="absolute top-4 right-4 p-2.5 rounded-full bg-white/20 hover:bg-white/30 transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            aria-label="Close verification modal"
           >
             <X className="w-5 h-5" />
           </button>
           
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center">
-              {channel === 'email' ? <Mail className="w-8 h-8" /> : <Shield className="w-8 h-8" />}
+          <div className="relative flex items-center gap-5">
+            <div className="w-18 h-18 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-lg w-[72px] h-[72px]">
+              <PurposeIcon className="w-9 h-9" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold">{displayTitle}</h2>
-              <p className="text-white/80 text-sm mt-1">
+              <h2 id="otp-modal-title" className="text-2xl font-bold">{displayTitle}</h2>
+              <p className="text-white/80 text-sm mt-1 max-w-xs">
                 {displaySubtitle}
               </p>
             </div>
@@ -139,29 +207,36 @@ export default function OTPVerificationModal({
 
         {/* Content */}
         <div className="p-6">
-          {/* Phone/Email Info */}
-          <div className="flex items-center justify-center gap-2 mb-6 py-3 bg-gray-50 rounded-xl">
-            {channel === 'email' ? (
-              <>
-                <Mail className="w-5 h-5 text-gray-500" />
-                <span className="text-gray-700 font-medium">{maskEmail(email!)}</span>
-              </>
-            ) : (
-              <>
-                <Phone className="w-5 h-5 text-gray-500" />
-                <span className="text-gray-700 font-medium">{maskPhoneNumber(phone!)}</span>
-              </>
-            )}
+          {/* Phone/Email Info Card */}
+          <div className="flex items-center justify-center gap-3 mb-6 py-4 bg-gray-50 rounded-2xl border border-gray-100">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+              channel === 'email' ? 'bg-purple-100' : 'bg-sky-100'
+            }`}>
+              {channel === 'email' ? (
+                <Mail className="w-5 h-5 text-purple-600" />
+              ) : (
+                <Phone className="w-5 h-5 text-sky-600" />
+              )}
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-wide font-medium">Sent to</p>
+              <p className="text-gray-900 font-semibold">
+                {channel === 'email' ? maskEmail(email!) : maskPhoneNumber(phone!)}
+              </p>
+            </div>
           </div>
 
           {/* Success State */}
           {isVerified ? (
-            <div className="text-center py-8">
-              <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-10 h-10 text-emerald-600" />
+            <div className="text-center py-10">
+              <div className="w-24 h-24 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/30 animate-check-bounce">
+                <CheckCircle className="w-14 h-14 text-white" strokeWidth={1.5} />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">Verified Successfully!</h3>
-              <p className="text-gray-600">Redirecting you...</p>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">{config.successMessage}</h3>
+              <p className="text-gray-500 flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Redirecting you now...
+              </p>
             </div>
           ) : (
             <>
@@ -182,36 +257,57 @@ export default function OTPVerificationModal({
 
               {/* Error Message */}
               {error && (
-                <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-xl mb-4">
-                  <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-                  <p className="text-red-600 text-sm">{error}</p>
+                <div 
+                  className="flex items-center gap-3 p-4 bg-red-50 border border-red-200 rounded-2xl mb-4 animate-in fade-in slide-in-from-top-2 duration-200"
+                  role="alert"
+                >
+                  <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <AlertCircle className="w-5 h-5 text-red-500" />
+                  </div>
+                  <div>
+                    <p className="text-red-700 font-medium text-sm">Verification Failed</p>
+                    <p className="text-red-600 text-sm">{error}</p>
+                  </div>
                 </div>
               )}
 
-              {/* Success Message */}
+              {/* Success Message (before full verification) */}
               {successMessage && !error && (
-                <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-xl mb-4">
-                  <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0" />
-                  <p className="text-emerald-600 text-sm">{successMessage}</p>
+                <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 rounded-2xl mb-4 animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <CheckCircle className="w-5 h-5 text-emerald-500" />
+                  </div>
+                  <p className="text-emerald-700 text-sm font-medium">{successMessage}</p>
                 </div>
               )}
 
               {/* Timer */}
               {currentOTP && (
-                <div className="text-center mb-4">
-                  <p className="text-sm text-gray-500">
-                    Code expires in{' '}
-                    <span className="font-semibold text-gray-700">{timeRemaining}</span>
-                  </p>
+                <div className="text-center mb-5">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 rounded-full">
+                    <Clock className="w-4 h-4 text-gray-500" />
+                    <span className="text-sm text-gray-600">
+                      Code expires in{' '}
+                      <span className="font-bold text-gray-800">{timeRemaining}</span>
+                    </span>
+                  </div>
                 </div>
               )}
 
               {/* Demo Notice */}
               {OTP_CONFIG.demoMode && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4">
-                  <p className="text-amber-700 text-sm text-center">
-                    🔐 Demo Mode: Use OTP <span className="font-bold">{OTP_CONFIG.demoOTP}</span>
-                  </p>
+                <div className="bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 rounded-2xl p-4 mb-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <Sparkles className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <p className="text-amber-800 text-sm font-medium">Demo Mode Active</p>
+                      <p className="text-amber-700 text-sm">
+                        Use code: <span className="font-bold font-mono bg-amber-100 px-2 py-0.5 rounded">{OTP_CONFIG.demoOTP}</span>
+                      </p>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -220,13 +316,14 @@ export default function OTPVerificationModal({
                 onClick={handleVerify}
                 disabled={otpValue.length !== OTP_CONFIG.length || isVerifying || isSending}
                 className={`
-                  w-full py-3.5 rounded-xl font-semibold text-white
-                  flex items-center justify-center gap-2
-                  transition-all duration-200
+                  w-full py-4 rounded-2xl font-bold text-white text-base
+                  flex items-center justify-center gap-3
+                  transition-all duration-300 ripple-effect
                   ${otpValue.length === OTP_CONFIG.length && !isVerifying && !isSending
-                    ? 'bg-gradient-to-r from-sky-500 to-emerald-500 hover:from-sky-600 hover:to-emerald-600 shadow-lg hover:shadow-xl'
+                    ? `bg-gradient-to-r ${config.gradient} hover:opacity-90 shadow-lg hover:shadow-xl active:scale-[0.98]`
                     : 'bg-gray-300 cursor-not-allowed'
                   }
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-sky-500
                 `}
               >
                 {isVerifying ? (
@@ -236,24 +333,26 @@ export default function OTPVerificationModal({
                   </>
                 ) : (
                   <>
-                    <CheckCircle className="w-5 h-5" />
+                    <Shield className="w-5 h-5" />
                     Verify OTP
+                    <ArrowRight className="w-5 h-5" />
                   </>
                 )}
               </button>
 
               {/* Resend Section */}
-              <div className="mt-6 text-center">
-                <p className="text-sm text-gray-500 mb-2">Didn't receive the code?</p>
+              <div className="mt-6 pt-6 border-t border-gray-100 text-center">
+                <p className="text-sm text-gray-500 mb-3">Didn't receive the code?</p>
                 <button
                   onClick={handleResend}
                   disabled={!canResend || isSending}
                   className={`
-                    inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
+                    inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold
                     transition-all duration-200
+                    focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500
                     ${canResend && !isSending
-                      ? 'text-sky-600 hover:bg-sky-50'
-                      : 'text-gray-400 cursor-not-allowed'
+                      ? 'text-sky-600 hover:bg-sky-50 border border-sky-200 hover:border-sky-300'
+                      : 'text-gray-400 cursor-not-allowed border border-gray-200'
                     }
                   `}
                 >
@@ -265,11 +364,11 @@ export default function OTPVerificationModal({
                   ) : canResend ? (
                     <>
                       <RefreshCw className="w-4 h-4" />
-                      Resend OTP
+                      Resend Code
                     </>
                   ) : (
                     <>
-                      <RefreshCw className="w-4 h-4" />
+                      <Clock className="w-4 h-4" />
                       Resend in {resendCooldown}s
                     </>
                   )}
@@ -278,8 +377,15 @@ export default function OTPVerificationModal({
             </>
           )}
         </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+          <p className="text-xs text-gray-500 text-center flex items-center justify-center gap-2">
+            <Lock className="w-3.5 h-3.5" />
+            Secured with 256-bit encryption
+          </p>
+        </div>
       </div>
     </div>
   )
 }
-

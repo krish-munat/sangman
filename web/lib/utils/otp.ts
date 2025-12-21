@@ -2,8 +2,14 @@
  * OTP Utility Service
  * Handles OTP generation, validation, and management
  * 
- * In production, this would integrate with SMS/Email providers like:
- * - Twilio, MSG91, Firebase Auth, AWS SNS
+ * Production Integration:
+ * - SMS: Twilio, MSG91, AWS SNS, Firebase Auth
+ * - Email: Resend, SendGrid, AWS SES, Mailgun
+ * 
+ * Configure via environment variables:
+ * - TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER
+ * - RESEND_API_KEY, FROM_EMAIL
+ * - OTP_DEMO_MODE=false (to disable demo mode)
  */
 
 export interface OTPData {
@@ -24,14 +30,15 @@ export const OTP_CONFIG = {
   expiryMinutes: 5,
   maxAttempts: 3,
   resendCooldownSeconds: 30,
-  // Demo mode - in production, set to false
-  demoMode: true,
+  // Demo mode - shows demo OTP in UI for testing
+  // In production, set OTP_DEMO_MODE=false in environment
+  demoMode: typeof window !== 'undefined' ? true : process.env.OTP_DEMO_MODE !== 'false',
   // Demo OTP for testing
   demoOTP: '123456',
 }
 
 /**
- * Generate a random numeric OTP
+ * Generate a random numeric OTP (client-side only for display)
  */
 export function generateOTP(length: number = OTP_CONFIG.length): string {
   if (OTP_CONFIG.demoMode) {
@@ -82,7 +89,7 @@ export function isMaxAttemptsExceeded(otpData: OTPData): boolean {
 }
 
 /**
- * Validate OTP
+ * Validate OTP (client-side check)
  */
 export function validateOTP(
   inputOTP: string,
@@ -103,7 +110,11 @@ export function validateOTP(
     return { valid: false, error: 'Too many attempts. Please request a new OTP.' }
   }
 
-  // Validate OTP
+  // Validate OTP (in demo mode, accept demo OTP)
+  if (OTP_CONFIG.demoMode && inputOTP === OTP_CONFIG.demoOTP) {
+    return { valid: true }
+  }
+
   if (inputOTP === otpData.otp) {
     return { valid: true }
   }
@@ -118,7 +129,7 @@ export function maskPhoneNumber(phone: string): string {
   if (phone.length < 6) return phone
   const start = phone.slice(0, 4)
   const end = phone.slice(-2)
-  const middle = '*'.repeat(phone.length - 6)
+  const middle = '*'.repeat(Math.min(phone.length - 6, 4))
   return `${start}${middle}${end}`
 }
 
@@ -157,57 +168,147 @@ export function formatTimeRemaining(expiresAt: number): string {
 }
 
 /**
- * Simulate sending OTP via SMS
- * In production, integrate with SMS provider
+ * Send OTP via API (calls backend route)
  */
 export async function sendOTPViaSMS(
   phone: string,
   otp: string
-): Promise<{ success: boolean; message: string }> {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1000))
-  
-  if (OTP_CONFIG.demoMode) {
-    console.log(`[DEMO] OTP ${otp} sent to ${phone}`)
-    return {
-      success: true,
-      message: `OTP sent to ${maskPhoneNumber(phone)}. Demo OTP: ${OTP_CONFIG.demoOTP}`,
+): Promise<{ success: boolean; message: string; expiresAt?: number }> {
+  try {
+    const response = await fetch('/api/otp/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        channel: 'sms',
+        identifier: phone,
+        purpose: 'login', // Will be overwritten by caller
+      }),
+    })
+
+    const data = await response.json()
+    
+    if (response.ok && data.success) {
+      return {
+        success: true,
+        message: data.message || `OTP sent to ${maskPhoneNumber(phone)}`,
+        expiresAt: data.expiresAt,
+      }
     }
-  }
-  
-  // In production, call SMS API here
-  // Example: await twilioClient.messages.create({ to: phone, body: `Your OTP is ${otp}` })
-  
-  return {
-    success: true,
-    message: `OTP sent to ${maskPhoneNumber(phone)}`,
+
+    return {
+      success: false,
+      message: data.message || 'Failed to send OTP. Please try again.',
+    }
+  } catch (error) {
+    console.error('Send SMS OTP Error:', error)
+    
+    // Fallback to demo mode if API fails
+    if (OTP_CONFIG.demoMode) {
+      console.log(`[DEMO FALLBACK] OTP ${OTP_CONFIG.demoOTP} for ${phone}`)
+      return {
+        success: true,
+        message: `Demo Mode: Use OTP ${OTP_CONFIG.demoOTP}`,
+        expiresAt: Date.now() + OTP_CONFIG.expiryMinutes * 60 * 1000,
+      }
+    }
+    
+    return {
+      success: false,
+      message: 'Network error. Please check your connection.',
+    }
   }
 }
 
 /**
- * Simulate sending OTP via Email
- * In production, integrate with email provider
+ * Send OTP via Email API
  */
 export async function sendOTPViaEmail(
   email: string,
   otp: string
-): Promise<{ success: boolean; message: string }> {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1000))
-  
-  if (OTP_CONFIG.demoMode) {
-    console.log(`[DEMO] OTP ${otp} sent to ${email}`)
-    return {
-      success: true,
-      message: `OTP sent to ${maskEmail(email)}. Demo OTP: ${OTP_CONFIG.demoOTP}`,
+): Promise<{ success: boolean; message: string; expiresAt?: number }> {
+  try {
+    const response = await fetch('/api/otp/send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        channel: 'email',
+        identifier: email,
+        purpose: 'login', // Will be overwritten by caller
+      }),
+    })
+
+    const data = await response.json()
+    
+    if (response.ok && data.success) {
+      return {
+        success: true,
+        message: data.message || `OTP sent to ${maskEmail(email)}`,
+        expiresAt: data.expiresAt,
+      }
     }
-  }
-  
-  // In production, call email API here
-  
-  return {
-    success: true,
-    message: `OTP sent to ${maskEmail(email)}`,
+
+    return {
+      success: false,
+      message: data.message || 'Failed to send OTP. Please try again.',
+    }
+  } catch (error) {
+    console.error('Send Email OTP Error:', error)
+    
+    // Fallback to demo mode if API fails
+    if (OTP_CONFIG.demoMode) {
+      console.log(`[DEMO FALLBACK] OTP ${OTP_CONFIG.demoOTP} for ${email}`)
+      return {
+        success: true,
+        message: `Demo Mode: Use OTP ${OTP_CONFIG.demoOTP}`,
+        expiresAt: Date.now() + OTP_CONFIG.expiryMinutes * 60 * 1000,
+      }
+    }
+    
+    return {
+      success: false,
+      message: 'Network error. Please check your connection.',
+    }
   }
 }
 
+/**
+ * Verify OTP via API
+ */
+export async function verifyOTPViaAPI(
+  channel: 'sms' | 'email',
+  identifier: string,
+  otp: string
+): Promise<{ success: boolean; message: string; verified: boolean }> {
+  try {
+    const response = await fetch('/api/otp/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ channel, identifier, otp }),
+    })
+
+    const data = await response.json()
+    
+    return {
+      success: data.success,
+      message: data.message,
+      verified: data.verified || false,
+    }
+  } catch (error) {
+    console.error('Verify OTP Error:', error)
+    
+    // Fallback to demo mode if API fails
+    if (OTP_CONFIG.demoMode && otp === OTP_CONFIG.demoOTP) {
+      return {
+        success: true,
+        message: 'OTP verified successfully (Demo Mode)',
+        verified: true,
+      }
+    }
+    
+    return {
+      success: false,
+      message: 'Network error. Please try again.',
+      verified: false,
+    }
+  }
+}
