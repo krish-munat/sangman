@@ -101,7 +101,7 @@ function LoginForm() {
       }
 
       login(mockUser, 'mock-token-' + Date.now())
-      toast.success('Login successful!')
+      toast.success(`Welcome back, ${mockUser.name}!`)
 
       // Redirect based on role
       setTimeout(() => {
@@ -167,7 +167,7 @@ function LoginForm() {
     }
 
     login(mockUser, 'mock-token-' + Date.now())
-    toast.success('Login successful!')
+    toast.success(`Welcome back, ${mockUser.name}!`)
 
     // Redirect based on role
     setTimeout(() => {

@@ -107,7 +107,7 @@ function RegisterForm() {
       }
 
       login(mockUser, 'mock-token')
-      toast.success('Account created successfully! Phone verified.')
+      toast.success(`Welcome, ${mockUser.name}! Your account has been created.`)
 
       if (role === 'doctor') {
         router.push('/doctor/verification')

@@ -860,6 +860,12 @@ video {
 .h-full {
   height: 100%;
 }
+.h-\[200px\] {
+  height: 200px;
+}
+.h-\[300px\] {
+  height: 300px;
+}
 .max-h-60 {
   max-height: 15rem;
 }
@@ -940,6 +946,12 @@ video {
 }
 .w-full {
   width: 100%;
+}
+.w-\[200px\] {
+  width: 200px;
+}
+.w-\[300px\] {
+  width: 300px;
 }
 .min-w-0 {
   min-width: 0px;
@@ -1147,6 +1159,9 @@ video {
 }
 .overflow-y-auto {
   overflow-y: auto;
+}
+.overflow-x-hidden {
+  overflow-x: hidden;
 }
 .truncate {
   overflow: hidden;
@@ -2289,10 +2304,14 @@ video {
 
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
 }
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: #ffffff;
@@ -2819,6 +2838,25 @@ body {
    Mobile-Specific Optimizations
    ================================ */
 
+/* Prevent horizontal scroll on all devices */
+html, body {
+  overflow-x: hidden !important;
+  width: 100% !important;
+  max-width: 100vw !important;
+  position: relative;
+}
+
+/* Ensure containers don't overflow */
+.container,
+section,
+nav,
+header,
+footer,
+main {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
 /* Improve touch targets for mobile */
 @media (max-width: 640px) {
   /* Larger touch targets for buttons */
@@ -2856,6 +2894,11 @@ body {
   /* Better spacing for mobile forms */
   .space-y-5 > * + * {
     margin-top: 1rem;
+  }
+  
+  /* Ensure decorative elements don't cause overflow */
+  .absolute {
+    max-width: 100vw;
   }
 }
 
@@ -3603,6 +3646,14 @@ a:active,
     height: 1.75rem;
   }
 
+  .sm\:h-\[300px\] {
+    height: 300px;
+  }
+
+  .sm\:h-\[400px\] {
+    height: 400px;
+  }
+
   .sm\:w-10 {
     width: 2.5rem;
   }
@@ -3629,6 +3680,14 @@ a:active,
 
   .sm\:w-7 {
     width: 1.75rem;
+  }
+
+  .sm\:w-\[300px\] {
+    width: 300px;
+  }
+
+  .sm\:w-\[400px\] {
+    width: 400px;
   }
 
   .sm\:grid-cols-2 {
@@ -3786,6 +3845,14 @@ a:active,
     height: 2rem;
   }
 
+  .md\:h-\[350px\] {
+    height: 350px;
+  }
+
+  .md\:h-\[500px\] {
+    height: 500px;
+  }
+
   .md\:w-14 {
     width: 3.5rem;
   }
@@ -3796,6 +3863,14 @@ a:active,
 
   .md\:w-8 {
     width: 2rem;
+  }
+
+  .md\:w-\[350px\] {
+    width: 350px;
+  }
+
+  .md\:w-\[500px\] {
+    width: 500px;
   }
 
   .md\:grid-cols-1 {
@@ -3891,8 +3966,24 @@ a:active,
     display: none;
   }
 
+  .lg\:h-\[400px\] {
+    height: 400px;
+  }
+
+  .lg\:h-\[600px\] {
+    height: 600px;
+  }
+
   .lg\:w-1\/2 {
     width: 50%;
+  }
+
+  .lg\:w-\[400px\] {
+    width: 400px;
+  }
+
+  .lg\:w-\[600px\] {
+    width: 600px;
   }
 
   .lg\:translate-x-0 {
