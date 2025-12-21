@@ -11,12 +11,25 @@ export interface User {
   updatedAt: string;
 }
 
+export interface ProfileDocument {
+  id: string;
+  name: string;
+  type: 'prescription' | 'report' | 'medical_report' | 'insurance' | 'id_proof' | 'other';
+  url: string;
+  size: number;
+  uploadedAt: string;
+}
+
 export interface Patient extends User {
   role: 'patient';
   name: string;
-  age: number;
+  age?: number;
+  dateOfBirth?: string;
+  bloodGroup?: 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-' | '';
   gender: 'male' | 'female' | 'other';
+  allergies?: string;
   medicalHistory?: string;
+  documents?: ProfileDocument[];
   emergencyContact: {
     name: string;
     phone: string;

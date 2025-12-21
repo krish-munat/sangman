@@ -21,7 +21,7 @@ export interface FamilyMember {
 export interface ProfileDocument {
   id: string
   name: string
-  type: 'id_proof' | 'medical_report' | 'prescription' | 'insurance' | 'other'
+  type: 'id_proof' | 'medical_report' | 'report' | 'prescription' | 'insurance' | 'other'
   url: string
   uploadedAt: string
   size: number // in bytes

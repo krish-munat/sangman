@@ -9,7 +9,8 @@ import PhoneInput from '@/components/auth/PhoneInput'
 import DocumentUpload from '@/components/profile/DocumentUpload'
 import FamilyMembersList from '@/components/profile/FamilyMembersList'
 import { validatePhoneByCountry, validateDifferentPhones, COUNTRY_CODES } from '@/lib/utils/validation'
-import { calculateAge, AGE_LIMITS, ProfileDocument } from '@/lib/store/familyStore'
+import { calculateAge, AGE_LIMITS } from '@/lib/store/familyStore'
+import type { ProfileDocument } from '../../../../shared/types'
 
 interface ProfileFormData {
   name: string
@@ -239,7 +240,7 @@ export default function ProfilePage() {
       updateUser({
         name: data.name,
         dateOfBirth: data.dateOfBirth,
-        bloodGroup: data.bloodGroup,
+        bloodGroup: data.bloodGroup as 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-' | '',
         gender: data.gender,
         allergies: data.allergies,
         medicalHistory: data.medicalHistory,
