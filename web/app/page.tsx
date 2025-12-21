@@ -43,8 +43,8 @@ export default function LandingPage() {
       <nav className="relative z-50 container mx-auto px-4 sm:px-6 py-4 sm:py-5 flex justify-between items-center">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 sm:gap-3">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-sky-500 to-emerald-500 rounded-xl flex items-center justify-center">
-            <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="white" />
+          <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-sky-500 to-emerald-500 rounded-xl flex items-center justify-center heartbeat-container relative">
+            <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-white heartbeat" fill="white" />
           </div>
           <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-sky-600 to-emerald-600 bg-clip-text text-transparent">
             SANGMAN

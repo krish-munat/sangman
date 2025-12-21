@@ -174,7 +174,7 @@ function RegisterForm() {
         <div className="relative z-10">
           <Link href="/" className="flex items-center gap-3 mb-12">
             <div className="w-12 h-12 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center">
-              <Heart className="w-7 h-7 text-white" fill="white" />
+              <Heart className="w-7 h-7 text-white heartbeat" fill="white" />
             </div>
             <span className="text-3xl font-bold text-white">SANGMAN</span>
           </Link>
@@ -244,7 +244,7 @@ function RegisterForm() {
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center gap-2 mb-8">
             <div className={`w-10 h-10 bg-gradient-to-br ${roleConfig.gradient} rounded-xl flex items-center justify-center`}>
-              <Heart className="w-6 h-6 text-white" fill="white" />
+              <Heart className="w-6 h-6 text-white heartbeat" fill="white" />
             </div>
             <span className={`text-2xl font-bold bg-gradient-to-r ${roleConfig.gradient} bg-clip-text text-transparent`}>
               SANGMAN

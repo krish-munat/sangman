@@ -104,7 +104,7 @@ export default function MobileNav() {
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-gradient-to-br from-sky-500 to-emerald-500 rounded-lg flex items-center justify-center">
-                  <Heart className="w-5 h-5 text-white" fill="white" />
+                  <Heart className="w-5 h-5 text-white heartbeat" fill="white" />
                 </div>
                 <span className="text-lg font-bold bg-gradient-to-r from-sky-600 to-emerald-600 bg-clip-text text-transparent">
                   SANGMAN

@@ -2,6 +2,6 @@
   "/page": "app/page.js",
   "/auth/register/page": "app/auth/register/page.js",
   "/auth/login/page": "app/auth/login/page.js",
-  "/patient/page": "app/patient/page.js",
-  "/patient/profile/page": "app/patient/profile/page.js"
+  "/patient/profile/page": "app/patient/profile/page.js",
+  "/patient/page": "app/patient/page.js"
 }
