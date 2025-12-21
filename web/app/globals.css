@@ -1,0 +1,258 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --color-primary: #0ea5e9;
+  --color-success: #10b981;
+  --color-emergency: #ef4444;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: #ffffff;
+  background-image: 
+    radial-gradient(circle at 20% 50%, rgba(14, 165, 233, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(16, 185, 129, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 40% 20%, rgba(14, 165, 233, 0.02) 0%, transparent 50%);
+  background-size: 100% 100%;
+  background-attachment: fixed;
+  color: #171717;
+  min-height: 100vh;
+}
+
+.dark body {
+  background-color: #0f172a;
+  background-image: 
+    radial-gradient(circle at 20% 50%, rgba(14, 165, 233, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(16, 185, 129, 0.05) 0%, transparent 50%);
+  background-size: 100% 100%;
+  background-attachment: fixed;
+  color: #fafafa;
+  min-height: 100vh;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: #262626;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: #525252;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: #737373;
+}
+
+/* Healthcare-focused animations */
+@keyframes pulse-health {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-pulse-health {
+  animation: pulse-health 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Accessibility */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Loading states */
+.skeleton {
+  @apply animate-pulse bg-neutral-200 dark:bg-neutral-800 rounded;
+}
+
+/* Button base styles */
+.btn {
+  @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 
+         focus:outline-none focus:ring-2 focus:ring-offset-2 
+         disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+.btn-primary {
+  @apply btn bg-primary-500 text-white hover:bg-primary-600 
+         focus:ring-primary-500;
+}
+
+.btn-success {
+  @apply btn bg-success-500 text-white hover:bg-success-600 
+         focus:ring-success-500;
+}
+
+.btn-emergency {
+  @apply btn bg-emergency-500 text-white hover:bg-emergency-600 
+         focus:ring-emergency-500 animate-pulse-health;
+}
+
+.btn-outline {
+  @apply btn border-2 border-primary-500 text-primary-500 
+         hover:bg-primary-50 dark:hover:bg-primary-900;
+}
+
+/* Card styles */
+.card {
+  @apply bg-white dark:bg-neutral-800 rounded-xl shadow-sm 
+         border border-neutral-200 dark:border-neutral-700 
+         p-6 transition-shadow hover:shadow-md;
+  /* Ensure proper spacing to prevent collisions */
+  position: relative;
+  z-index: 1;
+}
+
+/* Input styles */
+.input {
+  @apply w-full px-4 py-2 border border-neutral-300 dark:border-neutral-600 
+         rounded-lg bg-white dark:bg-neutral-800 
+         text-neutral-900 dark:text-neutral-100
+         focus:outline-none focus:ring-2 focus:ring-primary-500 
+         focus:border-transparent transition-all;
+}
+
+/* Hide icon when input has value (for peer utility) */
+.peer:not(:placeholder-shown) ~ .peer-icon-hide,
+.peer:focus ~ .peer-icon-hide {
+  opacity: 0;
+}
+
+/* Leaflet map styles */
+.leaflet-container {
+  @apply rounded-lg;
+}
+
+/* Healthcare decorative elements */
+.healthcare-accent {
+  position: relative;
+}
+
+.healthcare-accent::before {
+  content: '';
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  background: radial-gradient(circle, rgba(14, 165, 233, 0.1) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Prevent text/icon collisions */
+.icon-text-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.5rem;
+}
+
+.icon-text-group svg {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.icon-text-group span,
+.icon-text-group p {
+  flex: 1;
+  min-width: 0;
+  word-wrap: break-word;
+}
+
+/* Button with icon spacing */
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.btn-icon svg {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Card content spacing */
+.card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.card-content > * {
+  margin: 0;
+}
+
+/* Form group spacing */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.form-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Navigation item spacing */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  min-height: 2.75rem;
+}
+
+.nav-item svg {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.nav-item span {
+  flex: 1;
+  min-width: 0;
+}
+

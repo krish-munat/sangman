@@ -1,0 +1,24 @@
+{
+  "name": "sangman-healthcare-platform",
+  "version": "1.0.0",
+  "description": "SANGMAN - Digital Healthcare Platform",
+  "private": true,
+  "workspaces": [
+    "web",
+    "mobile"
+  ],
+  "scripts": {
+    "dev:web": "cd web && npm run dev",
+    "dev:mobile": "cd mobile && npm run start",
+    "build:web": "cd web && npm run build",
+    "build:mobile": "cd mobile && npm run build"
+  },
+  "keywords": [
+    "healthcare",
+    "telemedicine",
+    "patient-doctor-platform"
+  ],
+  "author": "SANGMAN Team",
+  "license": "MIT"
+}
+
