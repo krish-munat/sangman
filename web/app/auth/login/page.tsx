@@ -224,12 +224,13 @@ function LoginForm() {
       </div>
 
       {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-12">
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-12 relative">
+        {/* Language Switcher - Fixed Position */}
+        <div className="absolute top-4 right-4 lg:top-6 lg:right-6 z-50">
+          <LanguageSwitcher variant="dropdown" />
+        </div>
+
         <div className="w-full max-w-md">
-          {/* Language Switcher */}
-          <div className="flex justify-end mb-4">
-            <LanguageSwitcher variant="dropdown" />
-          </div>
 
           {/* Mobile Logo */}
           <div className="lg:hidden flex items-center justify-center gap-2 mb-8">

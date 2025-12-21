@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Globe, ChevronDown, Check } from 'lucide-react'
+import { useTranslations } from 'next-intl'
 import { useLanguageStore, type Locale } from '@/lib/store/languageStore'
 
 const languages: { code: Locale; name: string; nativeName: string; flag: string }[] = [
@@ -20,6 +21,7 @@ export default function LanguageSwitcher({ variant = 'dropdown', className = '' 
   const [isOpen, setIsOpen] = useState(false)
   const { locale, setLocale } = useLanguageStore()
   const router = useRouter()
+  const t = useTranslations('languages')
 
   const currentLanguage = languages.find(l => l.code === locale) || languages[0]
 
@@ -35,10 +37,11 @@ export default function LanguageSwitcher({ variant = 'dropdown', className = '' 
       <div className={`relative ${className}`}>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-700 transition-colors border border-gray-200 dark:border-neutral-600"
           aria-label="Change language"
         >
-          <Globe className="w-5 h-5 text-gray-600 dark:text-gray-300" />
+          <Globe className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-200">{currentLanguage.flag}</span>
         </button>
 
         {isOpen && (
@@ -94,8 +97,9 @@ export default function LanguageSwitcher({ variant = 'dropdown', className = '' 
     <div className={`relative ${className}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 dark:border-neutral-600 
-          bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors"
+        className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-neutral-600 
+          bg-white dark:bg-neutral-800 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors
+          shadow-md hover:shadow-lg"
       >
         <Globe className="w-4 h-4 text-gray-500" />
         <span className="text-lg">{currentLanguage.flag}</span>
@@ -108,7 +112,7 @@ export default function LanguageSwitcher({ variant = 'dropdown', className = '' 
           <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
           <div className="absolute left-0 top-full mt-2 w-56 bg-white dark:bg-neutral-800 border border-gray-200 dark:border-neutral-700 rounded-xl shadow-lg z-20 overflow-hidden">
             <div className="p-2 border-b border-gray-100 dark:border-neutral-700">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 px-2">Select Language</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 px-2">{t('selectLanguage')}</p>
             </div>
             {languages.map((lang) => (
               <button

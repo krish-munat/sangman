@@ -13,7 +13,125 @@
     "viewAll": "View All",
     "learnMore": "Learn More",
     "getStarted": "Get Started",
-    "backToHome": "← Back to Home"
+    "backToHome": "← Back to Home",
+    "logIn": "Log in",
+    "madeInIndia": "Made with ❤️ in India",
+    "copyright": "© 2024 SANGMAN. All rights reserved."
+  },
+  "landing": {
+    "nav": {
+      "features": "Features",
+      "whySangman": "Why Sangman",
+      "forHospitals": "For Hospitals",
+      "doctorLogin": "Doctor Login"
+    },
+    "hero": {
+      "badge": "India's Most Patient-Friendly Healthcare Platform",
+      "title": "Reducing Hospital Queues,",
+      "titleHighlight": "One Booking at a Time",
+      "subtitle": "Sync online + walk-in patients into one system. Real hospital queue management, verified doctors, and instant booking—all in one platform.",
+      "bookAppointment": "Book Appointment",
+      "joinAsDoctor": "Join as Doctor / Hospital"
+    },
+    "trust": {
+      "verifiedDoctors": "100% Verified Doctors",
+      "noHiddenCharges": "No Hidden Charges",
+      "fastSupport": "Fast Customer Support"
+    },
+    "stats": {
+      "waitTimeReduction": "Reduction in Wait Times",
+      "appointmentsDelivered": "Appointments Delivered",
+      "verifiedDoctors": "Verified Doctors",
+      "patientSatisfaction": "Patient Satisfaction"
+    },
+    "whyDifferent": {
+      "title": "Why Sangman is",
+      "titleHighlight": "Different",
+      "subtitle": "We solve real problems that other platforms ignore—designed for Indian hospitals and patients.",
+      "queueTitle": "Real Queue Reduction",
+      "queueDesc": "Unlike others, we sync online + walk-in patients into one unified system. Hospitals can manage both from a single dashboard.",
+      "queueFeature1": "Offline patients entered by admin",
+      "queueFeature2": "Real-time queue position",
+      "queueFeature3": "SMS queue updates",
+      "hospitalTitle": "Hospital Admin Power",
+      "hospitalDesc": "We're hospital-centric, not just doctor-centric. Admins get full control to manage their operations efficiently.",
+      "hospitalFeature1": "Add/remove doctors instantly",
+      "hospitalFeature2": "Block/unblock slots",
+      "hospitalFeature3": "Shift patients between doctors",
+      "supportTitle": "Human Customer Support",
+      "supportDesc": "Our support team responds within 30-60 minutes. Real humans, not bots. This is where competitors fail.",
+      "supportFeature1": "SLA-based response times",
+      "supportFeature2": "Call hospital directly",
+      "supportFeature3": "In-app chat support"
+    },
+    "features": {
+      "title": "Everything You Need",
+      "subtitle": "A complete healthcare platform for patients, doctors, and hospitals.",
+      "verifiedDoctors": "Verified Doctors",
+      "verifiedDoctorsDesc": "Aadhaar, PAN, Medical License verified",
+      "instantBooking": "Instant Booking",
+      "instantBookingDesc": "Book in seconds with real-time slots",
+      "gpsNavigation": "GPS Navigation",
+      "gpsNavigationDesc": "Find nearest doctors with directions",
+      "transparentPricing": "Transparent Pricing",
+      "transparentPricingDesc": "No hidden fees, clear breakdowns",
+      "doctorAnalytics": "Doctor Analytics",
+      "doctorAnalyticsDesc": "Insights on bookings and no-shows",
+      "multiDoctorClinics": "Multi-Doctor Clinics",
+      "multiDoctorClinicsDesc": "Manage multiple doctors easily",
+      "regionalLanguages": "Regional Languages",
+      "regionalLanguagesDesc": "Hindi and local language support",
+      "smsReminders": "SMS Reminders",
+      "smsRemindersDesc": "Automated appointment reminders"
+    },
+    "accountability": {
+      "title": "Doctor Accountability Built-In",
+      "subtitle": "If a doctor rejects or reschedules, they must provide a reason. Repeated rejections affect their visibility. This transparency builds patient trust.",
+      "feature1Title": "Mandatory Rejection Reason",
+      "feature1Desc": "No silent cancellations—patients always know why",
+      "feature2Title": "Auto-Suggest Alternatives",
+      "feature2Desc": "System suggests next available slot or another doctor",
+      "feature3Title": "Quality-Based Ratings",
+      "feature3Desc": "Only verified completed appointments can rate",
+      "dashboardTitle": "Dr. Rating Dashboard",
+      "dashboardSubtitle": "Real-time performance metrics",
+      "punctualityScore": "Punctuality Score",
+      "rejectionRate": "Rejection Rate",
+      "patientSatisfaction": "Patient Satisfaction"
+    },
+    "hospitals": {
+      "title": "For Hospitals & Clinics",
+      "subtitle": "Get clear ROI with actionable analytics and full administrative control.",
+      "analytics": "Daily Queue Analytics",
+      "analyticsDesc": "See queue load, peak hours, and slot utilization in real-time.",
+      "noShow": "No-Show Tracking",
+      "noShowDesc": "Reduce no-shows with automated reminders and penalty insights.",
+      "roi": "Clear ROI Reports",
+      "roiDesc": "Understand exactly what value you're getting from the platform."
+    },
+    "cta": {
+      "title": "Ready to Transform Your Healthcare Experience?",
+      "subtitle": "Join thousands of patients and healthcare providers who trust Sangman for seamless care delivery.",
+      "startAsPatient": "Start as Patient",
+      "registerHospital": "Register Hospital / Clinic"
+    },
+    "footer": {
+      "tagline": "India's patient-first healthcare platform. Reducing queues, increasing transparency.",
+      "forPatients": "For Patients",
+      "findDoctors": "Find Doctors",
+      "createAccount": "Create Account",
+      "healthTips": "Health Tips",
+      "subscriptionPlans": "Subscription Plans",
+      "forDoctorsHospitals": "For Doctors & Hospitals",
+      "joinAsDoctor": "Join as Doctor",
+      "doctorLogin": "Doctor Login",
+      "getVerified": "Get Verified",
+      "support": "Support",
+      "contactUs": "Contact Us",
+      "faq": "FAQ",
+      "privacyPolicy": "Privacy Policy",
+      "termsOfService": "Terms of Service"
+    }
   },
   "auth": {
     "login": {
@@ -204,14 +322,9 @@
     "saveWithSubscription": "Save 10% with Subscription"
   },
   "languages": {
+    "selectLanguage": "Select Language",
     "en": "English",
     "hi": "हिंदी (Hindi)",
-    "mr": "मराठी (Marathi)",
-    "gu": "ગુજરાતી (Gujarati)",
-    "ta": "தமிழ் (Tamil)",
-    "te": "తెలుగు (Telugu)",
-    "bn": "বাংলা (Bengali)",
-    "kn": "ಕನ್ನಡ (Kannada)"
+    "mr": "मराठी (Marathi)"
   }
 }
-

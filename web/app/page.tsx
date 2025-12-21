@@ -20,6 +20,7 @@ import {
   Phone
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import SimpleLanguageSwitcher from '@/components/SimpleLanguageSwitcher'
 
 export default function LandingPage() {
   const [mounted, setMounted] = useState(false)
@@ -60,6 +61,8 @@ export default function LandingPage() {
           <Link href="/auth/login?role=doctor" className="text-gray-600 hover:text-sky-600 transition-colors font-medium">
             Doctor Login
           </Link>
+          {/* Language Switcher */}
+          <SimpleLanguageSwitcher />
         </div>
         <div className="flex items-center gap-3">
           <Link
