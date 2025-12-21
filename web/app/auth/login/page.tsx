@@ -3,34 +3,96 @@
 import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { Heart, Mail, Lock, Stethoscope, Shield, ArrowRight, Sparkles, Smartphone } from 'lucide-react'
+import { Heart, Mail, Stethoscope, Shield, ArrowRight, Sparkles, Smartphone, User, Clock, X, AlertTriangle, CheckCircle } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
 import toast from 'react-hot-toast'
-import AuthInput from '@/components/auth/AuthInput'
 import PhoneInput from '@/components/auth/PhoneInput'
 import OTPVerificationModal from '@/components/auth/OTPVerificationModal'
 import SimpleLanguageSwitcher from '@/components/SimpleLanguageSwitcher'
 import { validatePhoneByCountry, formatPhoneWithCountryCode } from '@/lib/utils/validation'
+import { 
+  checkRateLimit, 
+  resetRateLimit,
+  sanitizeEmail, 
+  sanitizePhone,
+  saveRememberedCredential,
+  getRememberedCredentials,
+  removeRememberedCredential,
+  maskPhone,
+  maskEmail,
+  recordLoginAttempt,
+  generateSecureToken,
+  type RememberedCredential
+} from '@/lib/utils/security'
 
-const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email').optional().or(z.literal('')),
-  password: z.string().min(6, 'Password must be at least 6 characters').optional().or(z.literal('')),
-  phone: z.string().optional(),
-  otp: z.string().optional(),
-})
+// User database simulation (in production, this would be API calls)
+interface StoredUser {
+  id: string
+  phone?: string
+  email?: string
+  name: string
+  role: 'patient' | 'doctor' | 'admin'
+  verified: boolean
+  createdAt: string
+}
 
-type LoginFormData = z.infer<typeof loginSchema>
+// Simulated user database stored in localStorage
+const USERS_DB_KEY = 'sangman_users_db'
+
+function getUsersDB(): StoredUser[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const stored = localStorage.getItem(USERS_DB_KEY)
+    return stored ? JSON.parse(stored) : []
+  } catch {
+    return []
+  }
+}
+
+function findUser(identifier: string, type: 'phone' | 'email'): StoredUser | undefined {
+  const users = getUsersDB()
+  return users.find(u => 
+    type === 'phone' ? u.phone === identifier : u.email === identifier
+  )
+}
+
+function createOrUpdateUser(data: Partial<StoredUser> & { phone?: string; email?: string }): StoredUser {
+  const users = getUsersDB()
+  const identifier = data.phone || data.email || ''
+  const type = data.phone ? 'phone' : 'email'
+  
+  let existingUser = users.find(u => 
+    type === 'phone' ? u.phone === identifier : u.email === identifier
+  )
+  
+  if (existingUser) {
+    // Update existing user
+    Object.assign(existingUser, data, { verified: true })
+    localStorage.setItem(USERS_DB_KEY, JSON.stringify(users))
+    return existingUser
+  }
+  
+  // Create new user
+  const newUser: StoredUser = {
+    id: 'user_' + generateSecureToken().substring(0, 16),
+    phone: data.phone,
+    email: data.email,
+    name: data.name || 'User',
+    role: data.role || 'patient',
+    verified: true,
+    createdAt: new Date().toISOString(),
+  }
+  
+  users.push(newUser)
+  localStorage.setItem(USERS_DB_KEY, JSON.stringify(users))
+  return newUser
+}
 
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const role = searchParams.get('role') || 'patient'
-  const [loginMethod, setLoginMethod] = useState<'password' | 'otp'>('password')
   const [otpChannel, setOtpChannel] = useState<'phone' | 'email'>('phone')
-  const [isLoading, setIsLoading] = useState(false)
   const { login, isAuthenticated, isHydrated } = useAuthStore()
 
   // OTP Modal state
@@ -41,18 +103,29 @@ function LoginForm() {
   const [phoneValue, setPhoneValue] = useState('')
   const [phoneError, setPhoneError] = useState<string | undefined>()
   
-  // Email OTP state
-  const [emailForOTP, setEmailForOTP] = useState('')
+  // Email state
+  const [emailValue, setEmailValue] = useState('')
   const [emailError, setEmailError] = useState<string | undefined>()
 
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    formState: { errors },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-  })
+  // Remembered credentials
+  const [rememberedCreds, setRememberedCreds] = useState<RememberedCredential[]>([])
+  const [showRememberedList, setShowRememberedList] = useState(false)
+  const [selectedRemembered, setSelectedRemembered] = useState<RememberedCredential | null>(null)
+
+  // Rate limiting state
+  const [rateLimitError, setRateLimitError] = useState<string | undefined>()
+  const [remainingAttempts, setRemainingAttempts] = useState<number | undefined>()
+
+  // Load remembered credentials on mount
+  useEffect(() => {
+    const creds = getRememberedCredentials()
+    setRememberedCreds(creds)
+    
+    // Auto-select if only one remembered credential
+    if (creds.length === 1) {
+      selectRememberedCredential(creds[0])
+    }
+  }, [])
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -64,9 +137,40 @@ function LoginForm() {
     }
   }, [isHydrated, isAuthenticated, router])
 
+  const selectRememberedCredential = (cred: RememberedCredential) => {
+    setSelectedRemembered(cred)
+    setOtpChannel(cred.type)
+    
+    if (cred.type === 'phone') {
+      setCountryCode(cred.countryCode || '+91')
+      // Extract phone without country code
+      const phoneWithoutCode = cred.fullValue.replace(cred.countryCode || '+91', '')
+      setPhoneValue(phoneWithoutCode)
+    } else {
+      setEmailValue(cred.fullValue)
+    }
+    
+    setShowRememberedList(false)
+  }
+
+  const handleRemoveRemembered = (fullValue: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    removeRememberedCredential(fullValue)
+    setRememberedCreds(prev => prev.filter(c => c.fullValue !== fullValue))
+    
+    if (selectedRemembered?.fullValue === fullValue) {
+      setSelectedRemembered(null)
+      setPhoneValue('')
+      setEmailValue('')
+    }
+    
+    toast.success('Removed saved credential')
+  }
+
   const handlePhoneChange = (phone: string) => {
-    setPhoneValue(phone)
-    setValue('phone', phone)
+    setPhoneValue(sanitizePhone(phone))
+    setSelectedRemembered(null)
+    setRateLimitError(undefined)
     
     if (phone.length > 0) {
       const validation = validatePhoneByCountry(phone, countryCode)
@@ -84,63 +188,40 @@ function LoginForm() {
     }
   }
 
-  const onSubmit = async (data: LoginFormData) => {
-    setIsLoading(true)
-    try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 500))
-
-      const mockUser = {
-        id: 'user-' + Date.now(),
-        email: data.email || 'user@test.com',
-        phone: '+919876543210',
-        role: role as 'patient' | 'doctor' | 'admin',
-        name: role === 'doctor' ? 'Dr. Test User' : role === 'admin' ? 'Admin User' : 'Test Patient',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
-
-      login(mockUser, 'mock-token-' + Date.now())
-      toast.success(`Welcome back, ${mockUser.name}!`)
-
-      // Redirect based on role
-      setTimeout(() => {
-        if (role === 'patient') router.push('/patient')
-        else if (role === 'doctor') router.push('/doctor/dashboard')
-        else if (role === 'admin') router.push('/admin/dashboard')
-      }, 100)
-    } catch (error) {
-      toast.error('Login failed. Please try again.')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Validate email format
-  const validateEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!email) {
-      setEmailError('Email is required')
-      return false
-    }
-    if (!emailRegex.test(email)) {
+  const handleEmailChange = (email: string) => {
+    setEmailValue(sanitizeEmail(email))
+    setSelectedRemembered(null)
+    setRateLimitError(undefined)
+    
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setEmailError('Please enter a valid email address')
-      return false
+    } else {
+      setEmailError(undefined)
     }
-    setEmailError(undefined)
-    return true
   }
 
-  // Handle OTP Login - Opens verification modal
-  const handleOTPLogin = () => {
+  // Validate and send OTP
+  const handleSendOTP = () => {
+    const identifier = otpChannel === 'phone' 
+      ? formatPhoneWithCountryCode(phoneValue, countryCode)
+      : emailValue
+
+    // Check rate limit
+    const rateCheck = checkRateLimit(identifier, 'otp')
+    if (!rateCheck.allowed) {
+      setRateLimitError(rateCheck.message)
+      toast.error(rateCheck.message || 'Too many attempts')
+      return
+    }
+    setRemainingAttempts(rateCheck.remainingAttempts)
+
     if (otpChannel === 'email') {
-      // Validate email before opening OTP modal
-      if (!validateEmail(emailForOTP)) {
+      if (!emailValue || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+        setEmailError('Please enter a valid email address')
         toast.error('Please enter a valid email address')
         return
       }
     } else {
-      // Validate phone before opening OTP modal
       const phoneValidation = validatePhoneByCountry(phoneValue, countryCode)
       if (!phoneValidation.valid) {
         setPhoneError(phoneValidation.error)
@@ -149,25 +230,71 @@ function LoginForm() {
       }
     }
 
+    // Record attempt
+    recordLoginAttempt({
+      identifier,
+      type: otpChannel,
+      success: false, // Will be updated on success
+      method: 'otp',
+    })
+
     setShowOTPModal(true)
   }
 
   // Handle OTP verification success
   const handleOTPSuccess = () => {
     const fullPhone = otpChannel === 'phone' ? formatPhoneWithCountryCode(phoneValue, countryCode) : ''
-    
-    const mockUser = {
-      id: 'user-' + Date.now(),
-      email: otpChannel === 'email' ? emailForOTP : '',
-      phone: fullPhone,
-      role: role as 'patient' | 'doctor' | 'admin',
-      name: role === 'doctor' ? 'Dr. Test User' : role === 'admin' ? 'Admin User' : 'Test Patient',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
+    const identifier = otpChannel === 'phone' ? fullPhone : emailValue
 
-    login(mockUser, 'mock-token-' + Date.now())
-    toast.success(`Welcome back, ${mockUser.name}!`)
+    // Reset rate limit on success
+    resetRateLimit(identifier, 'otp')
+    resetRateLimit(identifier, 'login')
+
+    // Find or create user
+    const existingUser = findUser(identifier, otpChannel)
+    const isNewUser = !existingUser
+    
+    const user = createOrUpdateUser({
+      phone: otpChannel === 'phone' ? fullPhone : undefined,
+      email: otpChannel === 'email' ? emailValue : undefined,
+      role: role as 'patient' | 'doctor' | 'admin',
+      name: existingUser?.name || (role === 'doctor' ? 'Doctor' : role === 'admin' ? 'Admin' : 'User'),
+    })
+
+    // Save remembered credential
+    saveRememberedCredential({
+      identifier: otpChannel === 'phone' ? maskPhone(fullPhone) : maskEmail(emailValue),
+      type: otpChannel,
+      fullValue: identifier,
+      countryCode: otpChannel === 'phone' ? countryCode : undefined,
+      userName: user.name,
+    })
+
+    // Record successful login
+    recordLoginAttempt({
+      identifier,
+      type: otpChannel,
+      success: true,
+      method: 'otp',
+    })
+
+    // Login
+    login({
+      id: user.id,
+      email: user.email || '',
+      phone: user.phone || '',
+      role: user.role,
+      name: user.name,
+      createdAt: user.createdAt,
+      updatedAt: new Date().toISOString(),
+    }, 'token_' + generateSecureToken())
+
+    // Show appropriate message
+    if (isNewUser) {
+      toast.success(`Welcome, ${user.name}! Your account has been created.`)
+    } else {
+      toast.success(`Welcome back, ${user.name}!`)
+    }
 
     // Redirect based on role
     setTimeout(() => {
@@ -183,7 +310,7 @@ function LoginForm() {
         return {
           icon: Stethoscope,
           title: 'Doctor Portal',
-          subtitle: 'Access your practice dashboard',
+          subtitle: 'Secure OTP login for verified doctors',
           gradient: 'from-emerald-500 to-teal-600',
           bgGradient: 'from-emerald-50 to-teal-50',
         }
@@ -191,15 +318,15 @@ function LoginForm() {
         return {
           icon: Shield,
           title: 'Admin Portal',
-          subtitle: 'Platform administration',
+          subtitle: 'Secure administrative access',
           gradient: 'from-purple-500 to-indigo-600',
           bgGradient: 'from-purple-50 to-indigo-50',
         }
       default:
         return {
           icon: Heart,
-          title: 'Welcome Back',
-          subtitle: 'Your health journey continues here',
+          title: 'Secure Login',
+          subtitle: 'Verify with OTP for your security',
           gradient: 'from-sky-500 to-cyan-600',
           bgGradient: 'from-sky-50 to-cyan-50',
         }
@@ -226,31 +353,31 @@ function LoginForm() {
           </Link>
 
           <h1 className="text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
-            Healthcare Made Simple<br />& Accessible
+            Secure Healthcare<br />Access
           </h1>
           <p className="text-xl text-white/80 leading-relaxed max-w-md">
-            Join thousands of patients and doctors who trust Sangman for seamless healthcare delivery.
+            Your health data is protected with OTP verification. No passwords to remember or steal.
           </p>
         </div>
 
         <div className="relative z-10 space-y-4">
           <div className="flex items-center gap-3 text-white/90">
             <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-              <Sparkles className="w-5 h-5" />
+              <Shield className="w-5 h-5" />
             </div>
-            <span>100% Verified Doctors</span>
+            <span>OTP-Based Secure Login</span>
           </div>
           <div className="flex items-center gap-3 text-white/90">
             <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
               <Sparkles className="w-5 h-5" />
             </div>
-            <span>Instant Appointment Booking</span>
+            <span>Rate-Limited Protection</span>
           </div>
           <div className="flex items-center gap-3 text-white/90">
             <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center">
-              <Sparkles className="w-5 h-5" />
+              <CheckCircle className="w-5 h-5" />
             </div>
-            <span>Fast Customer Support</span>
+            <span>Device Recognition</span>
           </div>
         </div>
       </div>
@@ -286,82 +413,114 @@ function LoginForm() {
             <h1 className="text-center text-2xl font-bold text-gray-900 mb-1">
               {roleConfig.title}
             </h1>
-            <p className="text-center text-gray-500 mb-8">
+            <p className="text-center text-gray-500 mb-6">
               {roleConfig.subtitle}
             </p>
 
-            {/* Login Method Toggle */}
-            <div className="flex gap-2 mb-8 p-1.5 bg-gray-100 rounded-xl">
-              <button
-                type="button"
-                onClick={() => setLoginMethod('password')}
-                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-                  loginMethod === 'password'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <Lock className="w-4 h-4" />
-                Password
-              </button>
-              <button
-                type="button"
-                onClick={() => setLoginMethod('otp')}
-                className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
-                  loginMethod === 'otp'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <Smartphone className="w-4 h-4" />
-                OTP Login
-              </button>
+            {/* Security Badge */}
+            <div className="flex items-center justify-center gap-2 mb-6 py-2 px-4 bg-green-50 rounded-lg">
+              <Shield className="w-4 h-4 text-green-600" />
+              <span className="text-sm text-green-700 font-medium">OTP Verification Required</span>
             </div>
 
-            {loginMethod === 'password' ? (
-              <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-                <AuthInput
-                  label="Email Address"
-                  type="email"
-                  icon={Mail}
-                  error={errors.email?.message}
-                  {...register('email')}
-                />
+            {/* Remembered Credentials */}
+            {rememberedCreds.length > 0 && !selectedRemembered && (
+              <div className="mb-6">
+                <p className="text-sm text-gray-600 mb-3 flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Quick login with saved credentials
+                </p>
+                <div className="space-y-2">
+                  {rememberedCreds.map((cred, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => selectRememberedCredential(cred)}
+                      className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-200 hover:border-sky-300 hover:bg-sky-50 transition-all group"
+                    >
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        cred.type === 'phone' ? 'bg-sky-100' : 'bg-purple-100'
+                      }`}>
+                        {cred.type === 'phone' ? (
+                          <Smartphone className="w-5 h-5 text-sky-600" />
+                        ) : (
+                          <Mail className="w-5 h-5 text-purple-600" />
+                        )}
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="font-medium text-gray-900">{cred.userName || 'User'}</p>
+                        <p className="text-sm text-gray-500">{cred.identifier}</p>
+                      </div>
+                      <button
+                        onClick={(e) => handleRemoveRemembered(cred.fullValue, e)}
+                        className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-all"
+                        title="Remove saved credential"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </button>
+                  ))}
+                </div>
+                <div className="relative my-4">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-200" />
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-3 bg-white text-gray-500">or login with new number/email</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
-                <AuthInput
-                  label="Password"
-                  type="password"
-                  icon={Lock}
-                  error={errors.password?.message}
-                  {...register('password')}
-                />
+            {/* Selected Remembered Credential */}
+            {selectedRemembered && (
+              <div className="mb-6 p-4 bg-sky-50 rounded-xl border border-sky-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-sky-700">Logging in as</span>
+                  <button
+                    onClick={() => {
+                      setSelectedRemembered(null)
+                      setPhoneValue('')
+                      setEmailValue('')
+                    }}
+                    className="text-sm text-sky-600 hover:text-sky-700"
+                  >
+                    Change
+                  </button>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                    selectedRemembered.type === 'phone' ? 'bg-sky-200' : 'bg-purple-200'
+                  }`}>
+                    <User className="w-5 h-5 text-gray-700" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">{selectedRemembered.userName || 'User'}</p>
+                    <p className="text-sm text-gray-600">{selectedRemembered.identifier}</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className={`w-full rounded-xl bg-gradient-to-r ${roleConfig.gradient} py-3.5 text-sm font-semibold text-white hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg`}
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      <span>Signing in...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Sign In</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
-              </form>
-            ) : (
+            {/* Rate Limit Warning */}
+            {rateLimitError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-red-700">Account Temporarily Locked</p>
+                  <p className="text-sm text-red-600">{rateLimitError}</p>
+                </div>
+              </div>
+            )}
+
+            {/* OTP Login Form */}
+            {!selectedRemembered && (
               <div className="space-y-5">
                 {/* OTP Channel Toggle */}
-                <div className="flex gap-2 p-1 bg-gray-100 rounded-lg">
+                <div className="flex gap-2 p-1.5 bg-gray-100 rounded-xl">
                   <button
                     type="button"
                     onClick={() => setOtpChannel('phone')}
-                    className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                    className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
                       otpChannel === 'phone'
                         ? 'bg-white text-gray-900 shadow-sm'
                         : 'text-gray-500 hover:text-gray-700'
@@ -373,7 +532,7 @@ function LoginForm() {
                   <button
                     type="button"
                     onClick={() => setOtpChannel('email')}
-                    className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                    className={`flex-1 py-2.5 px-4 rounded-lg text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
                       otpChannel === 'email'
                         ? 'bg-white text-gray-900 shadow-sm'
                         : 'text-gray-500 hover:text-gray-700'
@@ -390,6 +549,7 @@ function LoginForm() {
                     countryCode={countryCode}
                     onCountryCodeChange={handleCountryCodeChange}
                     onPhoneChange={handlePhoneChange}
+                    value={phoneValue}
                     error={phoneError}
                   />
                 ) : (
@@ -401,11 +561,8 @@ function LoginForm() {
                       <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type="email"
-                        value={emailForOTP}
-                        onChange={(e) => {
-                          setEmailForOTP(e.target.value)
-                          if (emailError) setEmailError(undefined)
-                        }}
+                        value={emailValue}
+                        onChange={(e) => handleEmailChange(e.target.value)}
                         placeholder="Enter your email address"
                         className={`w-full pl-12 pr-4 py-3.5 rounded-xl border ${
                           emailError 
@@ -419,27 +576,38 @@ function LoginForm() {
                     )}
                   </div>
                 )}
-
-                <button
-                  type="button"
-                  onClick={handleOTPLogin}
-                  disabled={otpChannel === 'phone' ? !phoneValue : !emailForOTP}
-                  className={`w-full rounded-xl bg-gradient-to-r ${roleConfig.gradient} py-3.5 text-sm font-semibold text-white hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg`}
-                >
-                  {otpChannel === 'phone' ? <Smartphone className="w-4 h-4" /> : <Mail className="w-4 h-4" />}
-                  Send OTP & Login
-                </button>
-
-                <p className="text-xs text-center text-gray-500">
-                  We'll send a 6-digit verification code to your {otpChannel === 'phone' ? 'phone' : 'email'}
-                </p>
               </div>
             )}
 
-            <div className="mt-8 text-center space-y-3">
-              <Link href="/auth/forgot-password" className="text-sm text-sky-600 hover:text-sky-700 font-medium">
-                Forgot Password?
-              </Link>
+            {/* Remaining Attempts Warning */}
+            {remainingAttempts !== undefined && remainingAttempts < 3 && (
+              <p className="mt-2 text-sm text-amber-600 flex items-center gap-1">
+                <AlertTriangle className="w-4 h-4" />
+                {remainingAttempts} OTP request{remainingAttempts !== 1 ? 's' : ''} remaining
+              </p>
+            )}
+
+            {/* Send OTP Button */}
+            <button
+              type="button"
+              onClick={handleSendOTP}
+              disabled={
+                rateLimitError !== undefined ||
+                (otpChannel === 'phone' ? !phoneValue || !!phoneError : !emailValue || !!emailError)
+              }
+              className={`w-full mt-6 rounded-xl bg-gradient-to-r ${roleConfig.gradient} py-3.5 text-sm font-semibold text-white hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg`}
+            >
+              <Shield className="w-4 h-4" />
+              {selectedRemembered ? 'Verify with OTP' : 'Send OTP & Login'}
+            </button>
+
+            <p className="mt-4 text-xs text-center text-gray-500">
+              We'll send a 6-digit verification code to your {otpChannel === 'phone' ? 'phone' : 'email'}.
+              <br />
+              <span className="text-gray-400">Standard messaging rates may apply.</span>
+            </p>
+
+            <div className="mt-6 text-center">
               <p className="text-sm text-gray-500">
                 Don't have an account?{' '}
                 <Link href={`/auth/register?role=${role}`} className="text-sky-600 hover:text-sky-700 font-semibold">
@@ -488,7 +656,7 @@ function LoginForm() {
         onClose={() => setShowOTPModal(false)}
         onSuccess={handleOTPSuccess}
         phone={otpChannel === 'phone' ? formatPhoneWithCountryCode(phoneValue, countryCode) : undefined}
-        email={otpChannel === 'email' ? emailForOTP : undefined}
+        email={otpChannel === 'email' ? emailValue : undefined}
         channel={otpChannel === 'phone' ? 'sms' : 'email'}
         purpose="login"
       />
@@ -500,10 +668,10 @@ function LoginLoading() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-sky-50 to-cyan-50">
       <div className="text-center">
-        <div className="w-16 h-16 bg-gradient-to-br from-sky-500 to-cyan-600 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
-          <Heart className="w-8 h-8 text-white" />
+        <div className="w-16 h-16 bg-gradient-to-br from-sky-500 to-cyan-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Heart className="w-8 h-8 text-white heartbeat" />
         </div>
-        <p className="text-gray-500">Loading...</p>
+        <p className="text-gray-500">Loading secure login...</p>
       </div>
     </div>
   )
