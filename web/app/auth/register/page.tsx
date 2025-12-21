@@ -6,17 +6,20 @@ import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Heart, Mail, Lock, Phone, User, Stethoscope, ArrowRight, CheckCircle, Building2, Sparkles } from 'lucide-react'
+import { Heart, Mail, User, Stethoscope, ArrowRight, CheckCircle, Building2, Sparkles, Lock } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
 import toast from 'react-hot-toast'
 import AuthInput from '@/components/auth/AuthInput'
+import PhoneInput from '@/components/auth/PhoneInput'
+import PasswordInput from '@/components/auth/PasswordInput'
+import { validatePhoneByCountry, validatePasswordStrength, formatPhoneWithCountryCode } from '@/lib/utils/validation'
 
 const registerSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email'),
-  phone: z.string().min(10, 'Please enter a valid phone number'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  confirmPassword: z.string(),
+  phone: z.string().min(1, 'Phone number is required'),
+  password: z.string().min(1, 'Password is required'),
+  confirmPassword: z.string().min(1, 'Please confirm your password'),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ['confirmPassword'],
@@ -30,20 +33,59 @@ function RegisterForm() {
   const role = searchParams.get('role') || 'patient'
   const { login } = useAuthStore()
 
+  const [countryCode, setCountryCode] = useState('+91')
+  const [phoneValue, setPhoneValue] = useState('')
+  const [phoneError, setPhoneError] = useState<string | undefined>()
+  const [passwordError, setPasswordError] = useState<string | undefined>()
+
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
   })
 
+  const validateForm = (): boolean => {
+    let isValid = true
+
+    // Validate phone
+    const phoneValidation = validatePhoneByCountry(phoneValue, countryCode)
+    if (!phoneValidation.valid) {
+      setPhoneError(phoneValidation.error)
+      isValid = false
+    } else {
+      setPhoneError(undefined)
+    }
+
+    return isValid
+  }
+
   const onSubmit = async (data: RegisterFormData) => {
+    // Custom validation
+    const phoneValidation = validatePhoneByCountry(phoneValue, countryCode)
+    if (!phoneValidation.valid) {
+      setPhoneError(phoneValidation.error)
+      toast.error(phoneValidation.error || 'Invalid phone number')
+      return
+    }
+
+    // Validate password strength
+    const passwordStrength = validatePasswordStrength(data.password)
+    if (!passwordStrength.isValid) {
+      setPasswordError(passwordStrength.errors[0])
+      toast.error(passwordStrength.errors[0] || 'Password is too weak')
+      return
+    }
+
     try {
+      const fullPhone = formatPhoneWithCountryCode(phoneValue, countryCode)
+      
       const mockUser = {
         id: 'new-' + Date.now(),
         email: data.email,
-        phone: data.phone,
+        phone: fullPhone,
         role: role as 'patient' | 'doctor',
         name: data.name,
         createdAt: new Date().toISOString(),
@@ -60,6 +102,26 @@ function RegisterForm() {
       }
     } catch (error) {
       toast.error('Registration failed. Please try again.')
+    }
+  }
+
+  const handlePhoneChange = (phone: string) => {
+    setPhoneValue(phone)
+    setValue('phone', phone)
+    
+    if (phone.length > 0) {
+      const validation = validatePhoneByCountry(phone, countryCode)
+      setPhoneError(validation.error)
+    } else {
+      setPhoneError(undefined)
+    }
+  }
+
+  const handleCountryCodeChange = (code: string) => {
+    setCountryCode(code)
+    if (phoneValue.length > 0) {
+      const validation = validatePhoneByCountry(phoneValue, code)
+      setPhoneError(validation.error)
     }
   }
 
@@ -245,19 +307,18 @@ function RegisterForm() {
                 {...register('email')}
               />
 
-              <AuthInput
+              <PhoneInput
                 label="Phone Number"
-                type="tel"
-                icon={Phone}
-                error={errors.phone?.message}
-                {...register('phone')}
+                countryCode={countryCode}
+                onCountryCodeChange={handleCountryCodeChange}
+                onPhoneChange={handlePhoneChange}
+                error={phoneError || errors.phone?.message}
               />
 
-              <AuthInput
+              <PasswordInput
                 label="Password"
-                type="password"
-                icon={Lock}
-                error={errors.password?.message}
+                error={passwordError || errors.password?.message}
+                showStrengthIndicator={true}
                 {...register('password')}
               />
 

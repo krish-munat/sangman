@@ -6,10 +6,12 @@ import Link from 'next/link'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Heart, Mail, Lock, Phone, Stethoscope, Shield, ArrowRight, Sparkles } from 'lucide-react'
+import { Heart, Mail, Lock, Stethoscope, Shield, ArrowRight, Sparkles } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
 import toast from 'react-hot-toast'
 import AuthInput from '@/components/auth/AuthInput'
+import PhoneInput from '@/components/auth/PhoneInput'
+import { validatePhoneByCountry, formatPhoneWithCountryCode } from '@/lib/utils/validation'
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email').optional().or(z.literal('')),
@@ -29,9 +31,15 @@ function LoginForm() {
   const [isLoading, setIsLoading] = useState(false)
   const { login, isAuthenticated, isHydrated } = useAuthStore()
 
+  // Phone input state
+  const [countryCode, setCountryCode] = useState('+91')
+  const [phoneValue, setPhoneValue] = useState('')
+  const [phoneError, setPhoneError] = useState<string | undefined>()
+
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
@@ -47,16 +55,51 @@ function LoginForm() {
     }
   }, [isHydrated, isAuthenticated, router])
 
+  const handlePhoneChange = (phone: string) => {
+    setPhoneValue(phone)
+    setValue('phone', phone)
+    
+    if (phone.length > 0) {
+      const validation = validatePhoneByCountry(phone, countryCode)
+      setPhoneError(validation.error)
+    } else {
+      setPhoneError(undefined)
+    }
+  }
+
+  const handleCountryCodeChange = (code: string) => {
+    setCountryCode(code)
+    if (phoneValue.length > 0) {
+      const validation = validatePhoneByCountry(phoneValue, code)
+      setPhoneError(validation.error)
+    }
+  }
+
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true)
     try {
+      // Validate phone if OTP login
+      if (loginMethod === 'otp') {
+        const phoneValidation = validatePhoneByCountry(phoneValue, countryCode)
+        if (!phoneValidation.valid) {
+          setPhoneError(phoneValidation.error)
+          toast.error(phoneValidation.error || 'Invalid phone number')
+          setIsLoading(false)
+          return
+        }
+      }
+
       // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 500))
 
+      const fullPhone = loginMethod === 'otp' 
+        ? formatPhoneWithCountryCode(phoneValue, countryCode)
+        : '+919876543210'
+
       const mockUser = {
         id: 'user-' + Date.now(),
-        email: data.email || data.phone || 'user@test.com',
-        phone: data.phone || '+919876543210',
+        email: data.email || 'user@test.com',
+        phone: fullPhone,
         role: role as 'patient' | 'doctor' | 'admin',
         name: role === 'doctor' ? 'Dr. Test User' : role === 'admin' ? 'Admin User' : 'Test Patient',
         createdAt: new Date().toISOString(),
@@ -80,6 +123,14 @@ function LoginForm() {
   }
 
   const handleSendOTP = async () => {
+    // Validate phone before sending OTP
+    const phoneValidation = validatePhoneByCountry(phoneValue, countryCode)
+    if (!phoneValidation.valid) {
+      setPhoneError(phoneValidation.error)
+      toast.error(phoneValidation.error || 'Please enter a valid phone number')
+      return
+    }
+
     toast.success('OTP sent to your phone!')
     setOtpSent(true)
   }
@@ -238,12 +289,12 @@ function LoginForm() {
                 </>
               ) : (
                 <>
-                  <AuthInput
+                  <PhoneInput
                     label="Phone Number"
-                    type="tel"
-                    icon={Phone}
-                    error={errors.phone?.message}
-                    {...register('phone')}
+                    countryCode={countryCode}
+                    onCountryCodeChange={handleCountryCodeChange}
+                    onPhoneChange={handlePhoneChange}
+                    error={phoneError || errors.phone?.message}
                   />
 
                   {otpSent ? (

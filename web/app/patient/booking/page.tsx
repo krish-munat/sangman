@@ -4,10 +4,12 @@ import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Calendar, Clock, AlertCircle, CreditCard, CheckCircle, Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
-import type { Doctor, Appointment, Patient, Payment } from '../../../../shared/types'
-import { calculatePayment, generateOTP } from '@/lib/utils/calculations'
+import { useAppointmentStore } from '@/lib/store/appointmentStore'
+import type { Doctor, Patient, Payment } from '../../../../shared/types'
+import { calculatePayment } from '@/lib/utils/calculations'
 import { formatCurrency, formatDate, formatTimeSlot } from '@/lib/utils/format'
 import { validateFutureDate, handleError } from '@/lib/utils/errorHandler'
+import PaymentModal from '@/components/payment/PaymentModal'
 import toast from 'react-hot-toast'
 
 function BookingForm() {
@@ -15,12 +17,16 @@ function BookingForm() {
   const searchParams = useSearchParams()
   const doctorId = searchParams.get('doctorId')
   const { user } = useAuthStore()
+  const { addAppointment } = useAppointmentStore()
+  
   const [doctor, setDoctor] = useState<Doctor | null>(null)
   const [selectedDate, setSelectedDate] = useState<string>('')
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<{ start: string; end: string } | null>(null)
   const [isEmergency, setIsEmergency] = useState(false)
   const [payment, setPayment] = useState<Payment | null>(null)
   const [step, setStep] = useState<'date' | 'time' | 'payment' | 'confirmation'>('date')
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [bookingOtp, setBookingOtp] = useState<string>('')
 
   useEffect(() => {
     if (doctorId) {
@@ -105,29 +111,55 @@ function BookingForm() {
     setStep('payment')
   }
 
-  const handlePayment = async () => {
+  const handlePaymentClick = () => {
+    if (!selectedDate || !selectedTimeSlot || !payment) {
+      toast.error('Please complete all booking details')
+      return
+    }
+
+    if (!user?.id) {
+      toast.error('Please login to continue')
+      router.push('/auth/login?role=patient')
+      return
+    }
+
+    if (!validateFutureDate(selectedDate)) {
+      toast.error('Please select a valid future date')
+      return
+    }
+
+    setShowPaymentModal(true)
+  }
+
+  const handlePaymentSuccess = (transactionId: string, paymentMethod: 'card' | 'upi' | 'wallet') => {
+    setShowPaymentModal(false)
+
+    if (!doctor || !selectedTimeSlot || !payment) return
+
     try {
-      if (!selectedDate || !selectedTimeSlot || !payment) {
-        toast.error('Please complete all booking details')
-        return
-      }
+      // Add appointment to store
+      const newAppointment = addAppointment({
+        patientId: user?.id || '',
+        doctorId: doctor.id,
+        doctor: doctor,
+        date: selectedDate,
+        timeSlot: { ...selectedTimeSlot, available: false },
+        type: isEmergency ? 'emergency' : 'normal',
+        status: 'confirmed',
+        otpVerified: false,
+        payment: {
+          ...payment,
+          status: 'completed',
+          transactionId: transactionId,
+          paymentMethod: paymentMethod,
+        },
+      })
 
-      if (!user?.id) {
-        toast.error('Please login to continue')
-        router.push('/auth/login?role=patient')
-        return
-      }
-
-      if (!validateFutureDate(selectedDate)) {
-        toast.error('Please select a valid future date')
-        return
-      }
-
-      const otp = generateOTP()
-      toast.success(`Booking confirmed! OTP: ${otp}`)
+      setBookingOtp(newAppointment.otp || '')
+      toast.success('Appointment booked successfully!')
       setStep('confirmation')
     } catch (error) {
-      const errorMessage = handleError(error, 'Payment failed. Please try again.')
+      const errorMessage = handleError(error, 'Failed to create appointment')
       toast.error(errorMessage)
     }
   }
@@ -296,8 +328,15 @@ function BookingForm() {
               </div>
             </div>
 
+            {/* Payment Methods Info */}
+            <div className="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-xl mb-6">
+              <p className="text-sm text-primary-700 dark:text-primary-300">
+                💳 Multiple payment options available: UPI, Credit/Debit Card, Wallet
+              </p>
+            </div>
+
             <button
-              onClick={handlePayment}
+              onClick={handlePaymentClick}
               className="w-full bg-primary-500 text-white py-3 rounded-lg font-medium hover:bg-primary-600 transition-colors"
             >
               Pay {formatCurrency(payment.totalAmount)}
@@ -318,11 +357,24 @@ function BookingForm() {
               <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-2">
                 Your OTP for clinic visit:
               </p>
-              <p className="text-4xl font-bold text-primary-500">123456</p>
+              <p className="text-4xl font-bold text-primary-500">{bookingOtp}</p>
               <p className="text-xs text-neutral-500 mt-2">
                 Show this OTP to the doctor at the clinic
               </p>
             </div>
+
+            {/* Appointment Details */}
+            <div className="bg-neutral-50 dark:bg-neutral-900 p-4 rounded-lg mb-6 text-left">
+              <h4 className="font-semibold text-neutral-900 dark:text-neutral-100 mb-2">Appointment Details</h4>
+              <div className="space-y-1 text-sm text-neutral-600 dark:text-neutral-400">
+                <p><strong>Doctor:</strong> {doctor.name}</p>
+                <p><strong>Date:</strong> {formatDate(selectedDate, 'EEEE, MMMM d, yyyy')}</p>
+                <p><strong>Time:</strong> {selectedTimeSlot && formatTimeSlot(selectedTimeSlot.start, selectedTimeSlot.end)}</p>
+                <p><strong>Type:</strong> {isEmergency ? 'Emergency' : 'Normal'}</p>
+                <p><strong>Amount Paid:</strong> {payment && formatCurrency(payment.totalAmount)}</p>
+              </div>
+            </div>
+
             <div className="flex flex-wrap gap-4 justify-center">
               <button
                 onClick={() => router.push('/patient/appointments')}
@@ -340,6 +392,19 @@ function BookingForm() {
           </div>
         )}
       </div>
+
+      {/* Payment Modal */}
+      {showPaymentModal && payment && selectedTimeSlot && (
+        <PaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          onSuccess={handlePaymentSuccess}
+          amount={payment.totalAmount}
+          doctorName={doctor.name}
+          appointmentDate={formatDate(selectedDate, 'MMMM d, yyyy')}
+          appointmentTime={formatTimeSlot(selectedTimeSlot.start, selectedTimeSlot.end)}
+        />
+      )}
     </div>
   )
 }
