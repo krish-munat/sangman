@@ -17,8 +17,10 @@ import {
   Sun,
   Menu,
   X,
+  MapPin,
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
+import LocationPermission from '@/components/LocationPermission'
 
 export default function PatientLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -197,6 +199,15 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
 
       {/* Main Content */}
       <main className="lg:ml-64 pt-16 lg:pt-0 min-h-screen">{children}</main>
+
+      {/* Location Permission Modal - Shows once on first visit */}
+      <LocationPermission 
+        showOnMount={true}
+        variant="modal"
+        onSuccess={(location) => {
+          console.log('Location granted:', location)
+        }}
+      />
     </div>
   )
 }
