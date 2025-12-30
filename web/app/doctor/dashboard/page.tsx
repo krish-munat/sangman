@@ -17,7 +17,7 @@ export default function DoctorDashboard() {
   const [todayAppointments, setTodayAppointments] = useState<Appointment[]>([])
 
   useEffect(() => {
-    // TODO: Fetch dashboard data from API
+    // Mock data - works without backend
     setStats({
       todayAppointments: 5,
       pendingAppointments: 3,
@@ -200,4 +200,3 @@ export default function DoctorDashboard() {
     </div>
   )
 }
-

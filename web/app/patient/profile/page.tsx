@@ -10,7 +10,7 @@ import DocumentUpload from '@/components/profile/DocumentUpload'
 import FamilyMembersList from '@/components/profile/FamilyMembersList'
 import { validatePhoneByCountry, validateDifferentPhones, COUNTRY_CODES } from '@/lib/utils/validation'
 import { calculateAge, AGE_LIMITS } from '@/lib/store/familyStore'
-import type { ProfileDocument } from '../../../../shared/types'
+import type { ProfileDocument } from '@/types'
 
 interface ProfileFormData {
   name: string

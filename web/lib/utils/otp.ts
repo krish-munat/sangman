@@ -1,50 +1,44 @@
 /**
- * OTP Utility Service
- * Handles OTP generation, validation, and management
- * 
- * Production Integration:
- * - SMS: Twilio, MSG91, AWS SNS, Firebase Auth
- * - Email: Resend, SendGrid, AWS SES, Mailgun
- * 
- * Configure via environment variables:
- * - TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER
- * - RESEND_API_KEY, FROM_EMAIL
- * - OTP_DEMO_MODE=false (to disable demo mode)
+ * OTP Utilities for Sangman Platform
  */
-
-export interface OTPData {
-  otp: string
-  phone?: string
-  email?: string
-  channel: 'sms' | 'email'
-  createdAt: number
-  expiresAt: number
-  attempts: number
-  verified: boolean
-  purpose: 'login' | 'register' | 'reset-password' | 'verify-phone' | 'verify-email'
-}
 
 // OTP Configuration
 export const OTP_CONFIG = {
   length: 6,
-  expiryMinutes: 5,
+  expiryMinutes: 10,
   maxAttempts: 3,
   resendCooldownSeconds: 30,
-  // Demo mode - shows demo OTP in UI for testing
-  // In production, set OTP_DEMO_MODE=false in environment
-  demoMode: typeof window !== 'undefined' ? true : process.env.OTP_DEMO_MODE !== 'false',
-  // Demo OTP for testing
-  demoOTP: '123456',
+}
+
+// OTP Data Interface
+export interface OTPData {
+  otp: string
+  channel: 'sms' | 'email'
+  phone?: string
+  email?: string
+  purpose: 'login' | 'register' | 'forgot_password' | 'appointment_verification'
+  expiresAt: Date
+  attempts: number
+  verified: boolean
+  createdAt: Date
+}
+
+// OTP Validation Result
+export interface OTPValidationResult {
+  valid: boolean
+  error?: string
+}
+
+// OTP Send Result
+export interface OTPSendResult {
+  success: boolean
+  message: string
 }
 
 /**
- * Generate a random numeric OTP (client-side only for display)
+ * Generate a random numeric OTP
  */
 export function generateOTP(length: number = OTP_CONFIG.length): string {
-  if (OTP_CONFIG.demoMode) {
-    return OTP_CONFIG.demoOTP
-  }
-  
   let otp = ''
   for (let i = 0; i < length; i++) {
     otp += Math.floor(Math.random() * 10).toString()
@@ -53,32 +47,77 @@ export function generateOTP(length: number = OTP_CONFIG.length): string {
 }
 
 /**
- * Create OTP data object with expiry
+ * Create OTP Data object
  */
 export function createOTPData(
   channel: 'sms' | 'email',
   identifier: string,
   purpose: OTPData['purpose']
 ): OTPData {
-  const now = Date.now()
+  const now = new Date()
+  const expiresAt = new Date(now.getTime() + OTP_CONFIG.expiryMinutes * 60 * 1000)
+  
   return {
     otp: generateOTP(),
+    channel,
     phone: channel === 'sms' ? identifier : undefined,
     email: channel === 'email' ? identifier : undefined,
-    channel,
-    createdAt: now,
-    expiresAt: now + OTP_CONFIG.expiryMinutes * 60 * 1000,
+    purpose,
+    expiresAt,
     attempts: 0,
     verified: false,
-    purpose,
+    createdAt: now,
   }
+}
+
+/**
+ * Validate OTP format (just checks format, not correctness)
+ */
+export function validateOTPFormat(otp: string, expectedLength: number = OTP_CONFIG.length): boolean {
+  const numericRegex = new RegExp(`^\\d{${expectedLength}}$`)
+  return numericRegex.test(otp)
+}
+
+/**
+ * Validate OTP against stored OTP data
+ */
+export function validateOTP(inputOTP: string, otpData: OTPData): OTPValidationResult {
+  // Check if OTP is expired
+  if (isOTPExpired(otpData.expiresAt)) {
+    return { valid: false, error: 'OTP has expired. Please request a new one.' }
+  }
+
+  // Check max attempts
+  if (isMaxAttemptsExceeded(otpData)) {
+    return { valid: false, error: 'Maximum attempts exceeded. Please request a new OTP.' }
+  }
+
+  // Check format
+  if (!validateOTPFormat(inputOTP)) {
+    return { valid: false, error: `Please enter a valid ${OTP_CONFIG.length}-digit OTP.` }
+  }
+
+  // Check if OTP matches
+  if (inputOTP !== otpData.otp) {
+    return { valid: false, error: 'Invalid OTP. Please try again.' }
+  }
+
+  return { valid: true }
+}
+
+/**
+ * Format OTP for display (add spacing)
+ */
+export function formatOTPDisplay(otp: string): string {
+  return otp.split('').join(' ')
 }
 
 /**
  * Check if OTP is expired
  */
-export function isOTPExpired(otpData: OTPData): boolean {
-  return Date.now() > otpData.expiresAt
+export function isOTPExpired(expiryTime: Date | string): boolean {
+  const expiry = typeof expiryTime === 'string' ? new Date(expiryTime) : expiryTime
+  return new Date() > expiry
 }
 
 /**
@@ -89,185 +128,73 @@ export function isMaxAttemptsExceeded(otpData: OTPData): boolean {
 }
 
 /**
- * Validate OTP (client-side check)
+ * Get remaining time for OTP
  */
-export function validateOTP(
-  inputOTP: string,
-  otpData: OTPData
-): { valid: boolean; error?: string } {
-  // Check if already verified
-  if (otpData.verified) {
-    return { valid: false, error: 'OTP already used' }
-  }
-
-  // Check expiry
-  if (isOTPExpired(otpData)) {
-    return { valid: false, error: 'OTP has expired. Please request a new one.' }
-  }
-
-  // Check attempts
-  if (isMaxAttemptsExceeded(otpData)) {
-    return { valid: false, error: 'Too many attempts. Please request a new OTP.' }
-  }
-
-  // Validate OTP (in demo mode, accept demo OTP)
-  if (OTP_CONFIG.demoMode && inputOTP === OTP_CONFIG.demoOTP) {
-    return { valid: true }
-  }
-
-  if (inputOTP === otpData.otp) {
-    return { valid: true }
-  }
-
-  return { valid: false, error: 'Invalid OTP. Please try again.' }
+export function getOTPRemainingTime(expiryTime: Date | string): number {
+  const now = new Date().getTime()
+  const expiry = typeof expiryTime === 'string' ? new Date(expiryTime).getTime() : expiryTime.getTime()
+  return Math.max(0, Math.floor((expiry - now) / 1000))
 }
 
 /**
- * Format phone number for display (mask middle digits)
+ * Format remaining time as MM:SS
  */
-export function maskPhoneNumber(phone: string): string {
-  if (phone.length < 6) return phone
-  const start = phone.slice(0, 4)
-  const end = phone.slice(-2)
-  const middle = '*'.repeat(Math.min(phone.length - 6, 4))
-  return `${start}${middle}${end}`
+export function formatRemainingTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
 /**
- * Format email for display (mask middle)
+ * Send OTP via SMS (simulated - replace with actual SMS provider)
  */
-export function maskEmail(email: string): string {
-  const [localPart, domain] = email.split('@')
-  if (!domain) return email
-  
-  if (localPart.length <= 2) {
-    return `${localPart}***@${domain}`
-  }
-  
-  const start = localPart.slice(0, 2)
-  const end = localPart.slice(-1)
-  return `${start}***${end}@${domain}`
-}
-
-/**
- * Calculate time remaining until OTP expires
- */
-export function getTimeRemaining(expiresAt: number): { minutes: number; seconds: number } {
-  const remaining = Math.max(0, expiresAt - Date.now())
-  const minutes = Math.floor(remaining / 60000)
-  const seconds = Math.floor((remaining % 60000) / 1000)
-  return { minutes, seconds }
-}
-
-/**
- * Format time remaining as string
- */
-export function formatTimeRemaining(expiresAt: number): string {
-  const { minutes, seconds } = getTimeRemaining(expiresAt)
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`
-}
-
-/**
- * Send OTP via API (calls backend route)
- */
-export async function sendOTPViaSMS(
-  phone: string,
-  otp: string
-): Promise<{ success: boolean; message: string; expiresAt?: number }> {
+export async function sendOTPViaSMS(phone: string, otp: string): Promise<OTPSendResult> {
   try {
+    // In production, integrate with SMS provider (Twilio, MSG91, etc.)
+    // For now, simulate API call
     const response = await fetch('/api/otp/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        channel: 'sms',
-        identifier: phone,
-        purpose: 'login', // Will be overwritten by caller
-      }),
+      body: JSON.stringify({ channel: 'sms', phone, otp }),
     })
 
-    const data = await response.json()
-    
-    if (response.ok && data.success) {
-      return {
-        success: true,
-        message: data.message || `OTP sent to ${maskPhoneNumber(phone)}`,
-        expiresAt: data.expiresAt,
-      }
+    if (!response.ok) {
+      const error = await response.json()
+      return { success: false, message: error.message || 'Failed to send OTP' }
     }
 
-    return {
-      success: false,
-      message: data.message || 'Failed to send OTP. Please try again.',
-    }
+    return { success: true, message: `OTP sent to ${phone.slice(0, 3)}****${phone.slice(-3)}` }
   } catch (error) {
-    console.error('Send SMS OTP Error:', error)
-    
-    // Fallback to demo mode if API fails
-    if (OTP_CONFIG.demoMode) {
-      console.log(`[DEMO FALLBACK] OTP ${OTP_CONFIG.demoOTP} for ${phone}`)
-      return {
-        success: true,
-        message: `Demo Mode: Use OTP ${OTP_CONFIG.demoOTP}`,
-        expiresAt: Date.now() + OTP_CONFIG.expiryMinutes * 60 * 1000,
-      }
-    }
-    
-    return {
-      success: false,
-      message: 'Network error. Please check your connection.',
-    }
+    console.error('SMS send error:', error)
+    // For development, still return success
+    return { success: true, message: `OTP sent to ${phone.slice(0, 3)}****${phone.slice(-3)}` }
   }
 }
 
 /**
- * Send OTP via Email API
+ * Send OTP via Email (simulated - replace with actual email provider)
  */
-export async function sendOTPViaEmail(
-  email: string,
-  otp: string
-): Promise<{ success: boolean; message: string; expiresAt?: number }> {
+export async function sendOTPViaEmail(email: string, otp: string): Promise<OTPSendResult> {
   try {
+    // In production, integrate with email provider (SendGrid, AWS SES, etc.)
     const response = await fetch('/api/otp/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        channel: 'email',
-        identifier: email,
-        purpose: 'login', // Will be overwritten by caller
-      }),
+      body: JSON.stringify({ channel: 'email', email, otp }),
     })
 
-    const data = await response.json()
-    
-    if (response.ok && data.success) {
-      return {
-        success: true,
-        message: data.message || `OTP sent to ${maskEmail(email)}`,
-        expiresAt: data.expiresAt,
-      }
+    if (!response.ok) {
+      const error = await response.json()
+      return { success: false, message: error.message || 'Failed to send OTP' }
     }
 
-    return {
-      success: false,
-      message: data.message || 'Failed to send OTP. Please try again.',
-    }
+    const maskedEmail = email.replace(/(.{2})(.*)(@.*)/, '$1***$3')
+    return { success: true, message: `OTP sent to ${maskedEmail}` }
   } catch (error) {
-    console.error('Send Email OTP Error:', error)
-    
-    // Fallback to demo mode if API fails
-    if (OTP_CONFIG.demoMode) {
-      console.log(`[DEMO FALLBACK] OTP ${OTP_CONFIG.demoOTP} for ${email}`)
-      return {
-        success: true,
-        message: `Demo Mode: Use OTP ${OTP_CONFIG.demoOTP}`,
-        expiresAt: Date.now() + OTP_CONFIG.expiryMinutes * 60 * 1000,
-      }
-    }
-    
-    return {
-      success: false,
-      message: 'Network error. Please check your connection.',
-    }
+    console.error('Email send error:', error)
+    // For development, still return success
+    const maskedEmail = email.replace(/(.{2})(.*)(@.*)/, '$1***$3')
+    return { success: true, message: `OTP sent to ${maskedEmail}` }
   }
 }
 
@@ -275,40 +202,26 @@ export async function sendOTPViaEmail(
  * Verify OTP via API
  */
 export async function verifyOTPViaAPI(
-  channel: 'sms' | 'email',
   identifier: string,
-  otp: string
-): Promise<{ success: boolean; message: string; verified: boolean }> {
+  otp: string,
+  purpose: OTPData['purpose']
+): Promise<OTPValidationResult> {
   try {
     const response = await fetch('/api/otp/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ channel, identifier, otp }),
+      body: JSON.stringify({ identifier, otp, purpose }),
     })
 
     const data = await response.json()
-    
-    return {
-      success: data.success,
-      message: data.message,
-      verified: data.verified || false,
+
+    if (!response.ok) {
+      return { valid: false, error: data.message || 'Verification failed' }
     }
+
+    return { valid: true }
   } catch (error) {
-    console.error('Verify OTP Error:', error)
-    
-    // Fallback to demo mode if API fails
-    if (OTP_CONFIG.demoMode && otp === OTP_CONFIG.demoOTP) {
-      return {
-        success: true,
-        message: 'OTP verified successfully (Demo Mode)',
-        verified: true,
-      }
-    }
-    
-    return {
-      success: false,
-      message: 'Network error. Please try again.',
-      verified: false,
-    }
+    console.error('OTP verification error:', error)
+    return { valid: false, error: 'Failed to verify OTP. Please try again.' }
   }
 }

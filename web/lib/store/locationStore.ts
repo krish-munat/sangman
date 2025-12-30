@@ -11,6 +11,10 @@ interface LocationState {
   // Current location data
   location: LocationData | null
   
+  // Convenience getters
+  coordinates: { latitude: number; longitude: number } | null
+  address: string | null
+  
   // Permission status
   permissionStatus: PermissionState | null
   isSupported: boolean
@@ -22,6 +26,7 @@ interface LocationState {
   
   // Actions
   requestLocation: () => Promise<boolean>
+  fetchLocation: () => Promise<boolean>
   checkPermission: () => Promise<void>
   clearLocation: () => void
   setHasPrompted: (value: boolean) => void
@@ -31,6 +36,8 @@ export const useLocationStore = create<LocationState>()(
   persist(
     (set, get) => ({
       location: null,
+      coordinates: null,
+      address: null,
       permissionStatus: null,
       isSupported: typeof window !== 'undefined' ? isGeolocationSupported() : false,
       isLoading: false,
@@ -44,7 +51,9 @@ export const useLocationStore = create<LocationState>()(
           const locationData = await getCurrentLocation()
           
           set({ 
-            location: locationData, 
+            location: locationData,
+            coordinates: locationData ? { latitude: locationData.latitude, longitude: locationData.longitude } : null,
+            address: locationData?.address || null,
             isLoading: false,
             permissionStatus: 'granted',
             hasPrompted: true,
@@ -61,6 +70,10 @@ export const useLocationStore = create<LocationState>()(
           
           return false
         }
+      },
+
+      fetchLocation: async () => {
+        return get().requestLocation()
       },
 
       checkPermission: async () => {
@@ -80,9 +93,16 @@ export const useLocationStore = create<LocationState>()(
       name: 'location-storage',
       partialize: (state) => ({
         location: state.location,
+        coordinates: state.coordinates,
+        address: state.address,
         hasPrompted: state.hasPrompted,
       }),
     }
   )
 )
+
+
+
+
+
 

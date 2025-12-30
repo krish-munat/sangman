@@ -35,7 +35,7 @@ export default function EarningsPage() {
   const [filter, setFilter] = useState<'all' | 'month' | 'week'>('month')
 
   useEffect(() => {
-    // TODO: Fetch earnings data from API
+    // Mock data - works without backend
     setEarnings({
       totalEarnings: 125000,
       platformFee: 8750,
@@ -249,4 +249,3 @@ export default function EarningsPage() {
     </div>
   )
 }
-

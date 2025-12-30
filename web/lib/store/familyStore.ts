@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
 export interface FamilyMember {
   id: string
@@ -8,23 +8,13 @@ export interface FamilyMember {
   dateOfBirth: string
   age: number
   gender: 'male' | 'female' | 'other'
-  relation: 'son' | 'daughter' | 'spouse' | 'parent' | 'other'
+  relation: 'son' | 'daughter' | 'spouse' | 'parent' | 'sibling' | 'other'
   bloodGroup?: string
   allergies?: string
   medicalHistory?: string
-  profilePhoto?: string
-  documents?: ProfileDocument[]
+  phone?: string
   createdAt: string
   updatedAt: string
-}
-
-export interface ProfileDocument {
-  id: string
-  name: string
-  type: 'id_proof' | 'medical_report' | 'report' | 'prescription' | 'insurance' | 'other'
-  url: string
-  uploadedAt: string
-  size: number // in bytes
 }
 
 interface FamilyState {
@@ -32,16 +22,19 @@ interface FamilyState {
   isHydrated: boolean
   
   // Actions
-  addMember: (member: Omit<FamilyMember, 'id' | 'createdAt' | 'updatedAt'>) => FamilyMember
+  addMember: (member: Omit<FamilyMember, 'id' | 'createdAt' | 'updatedAt'>) => void
   updateMember: (id: string, updates: Partial<FamilyMember>) => void
   removeMember: (id: string) => void
   getMembersByParent: (parentUserId: string) => FamilyMember[]
-  getMemberById: (id: string) => FamilyMember | undefined
-  addDocumentToMember: (memberId: string, document: Omit<ProfileDocument, 'id' | 'uploadedAt'>) => void
-  removeDocumentFromMember: (memberId: string, documentId: string) => void
+  setHydrated: () => void
 }
 
-// Age calculation helper
+export const AGE_LIMITS = {
+  MAX_CHILD_AGE: 18,
+  MIN_PARENT_AGE: 40,
+  MIN_ADULT_AGE: 18,  // Minimum age for independent account
+}
+
 export function calculateAge(dateOfBirth: string): number {
   const today = new Date()
   const birthDate = new Date(dateOfBirth)
@@ -55,110 +48,65 @@ export function calculateAge(dateOfBirth: string): number {
   return age
 }
 
-// Age validation constants
-export const AGE_LIMITS = {
-  MIN_ADULT_AGE: 18, // Minimum age for independent account
-  MAX_CHILD_AGE: 16, // Maximum age for child profile under parent
-  MIN_CHILD_AGE: 0,
-}
-
-// Generate unique ID
-const generateId = () => `member-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-
 export const useFamilyStore = create<FamilyState>()(
   persist(
     (set, get) => ({
       members: [],
       isHydrated: false,
 
-      addMember: (memberData) => {
-        const newMember: FamilyMember = {
-          ...memberData,
-          id: generateId(),
-          age: calculateAge(memberData.dateOfBirth),
-          documents: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
+      addMember: (member) => set((state) => ({
+        members: [
+          ...state.members,
+          {
+            ...member,
+            id: `member-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        ],
+      })),
 
-        set((state) => ({
-          members: [...state.members, newMember],
-        }))
+      updateMember: (id, updates) => set((state) => ({
+        members: state.members.map((m) =>
+          m.id === id
+            ? { ...m, ...updates, updatedAt: new Date().toISOString() }
+            : m
+        ),
+      })),
 
-        return newMember
-      },
-
-      updateMember: (id, updates) => {
-        set((state) => ({
-          members: state.members.map((member) =>
-            member.id === id
-              ? {
-                  ...member,
-                  ...updates,
-                  age: updates.dateOfBirth ? calculateAge(updates.dateOfBirth) : member.age,
-                  updatedAt: new Date().toISOString(),
-                }
-              : member
-          ),
-        }))
-      },
-
-      removeMember: (id) => {
-        set((state) => ({
-          members: state.members.filter((member) => member.id !== id),
-        }))
-      },
+      removeMember: (id) => set((state) => ({
+        members: state.members.filter((m) => m.id !== id),
+      })),
 
       getMembersByParent: (parentUserId) => {
-        return get().members.filter((member) => member.parentUserId === parentUserId)
+        return get().members.filter((m) => m.parentUserId === parentUserId)
       },
-
-      getMemberById: (id) => {
-        return get().members.find((member) => member.id === id)
-      },
-
-      addDocumentToMember: (memberId, document) => {
-        const newDocument: ProfileDocument = {
-          ...document,
-          id: `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          uploadedAt: new Date().toISOString(),
-        }
-
-        set((state) => ({
-          members: state.members.map((member) =>
-            member.id === memberId
-              ? {
-                  ...member,
-                  documents: [...(member.documents || []), newDocument],
-                  updatedAt: new Date().toISOString(),
-                }
-              : member
-          ),
-        }))
-      },
-
-      removeDocumentFromMember: (memberId, documentId) => {
-        set((state) => ({
-          members: state.members.map((member) =>
-            member.id === memberId
-              ? {
-                  ...member,
-                  documents: (member.documents || []).filter((doc) => doc.id !== documentId),
-                  updatedAt: new Date().toISOString(),
-                }
-              : member
-          ),
-        }))
-      },
+      
+      setHydrated: () => set({ isHydrated: true }),
     }),
     {
-      name: 'family-members-storage',
+      name: 'sangman-family-store',
+      storage: createJSONStorage(() => {
+        if (typeof window === 'undefined') {
+          return {
+            getItem: () => null,
+            setItem: () => {},
+            removeItem: () => {},
+          }
+        }
+        return localStorage
+      }),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          state.isHydrated = true
+          state.setHydrated()
         }
       },
     }
   )
 )
 
+// Selector hooks
+export const useFamilyMembers = (parentUserId: string) => 
+  useFamilyStore((state) => state.members.filter(m => m.parentUserId === parentUserId))
+
+export const useIsFamilyHydrated = () => useFamilyStore((state) => state.isHydrated)

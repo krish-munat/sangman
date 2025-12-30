@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { X, Baby, User, Calendar, Heart, AlertCircle, CheckCircle, Users } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { X, User, Calendar, AlertCircle, CheckCircle, Users } from 'lucide-react'
 import { useFamilyStore, FamilyMember, calculateAge, AGE_LIMITS } from '@/lib/store/familyStore'
 import toast from 'react-hot-toast'
 
@@ -22,6 +22,16 @@ const RELATIONS = [
   { value: 'other', label: 'Other', icon: '👤' },
 ]
 
+const getDefaultFormData = (editMember?: FamilyMember | null) => ({
+  name: editMember?.name || '',
+  dateOfBirth: editMember?.dateOfBirth || '',
+  gender: editMember?.gender || 'male' as const,
+  relation: editMember?.relation || 'son' as const,
+  bloodGroup: editMember?.bloodGroup || '',
+  allergies: editMember?.allergies || '',
+  medicalHistory: editMember?.medicalHistory || '',
+})
+
 export default function AddChildProfileModal({
   isOpen,
   onClose,
@@ -30,15 +40,15 @@ export default function AddChildProfileModal({
 }: AddChildProfileModalProps) {
   const { addMember, updateMember } = useFamilyStore()
   
-  const [formData, setFormData] = useState({
-    name: editMember?.name || '',
-    dateOfBirth: editMember?.dateOfBirth || '',
-    gender: editMember?.gender || 'male' as const,
-    relation: editMember?.relation || 'son' as const,
-    bloodGroup: editMember?.bloodGroup || '',
-    allergies: editMember?.allergies || '',
-    medicalHistory: editMember?.medicalHistory || '',
-  })
+  const [formData, setFormData] = useState(getDefaultFormData(editMember))
+
+  // Sync form state when editMember changes or modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setFormData(getDefaultFormData(editMember))
+      setErrors({})
+    }
+  }, [editMember, isOpen])
   
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -355,4 +365,7 @@ export default function AddChildProfileModal({
     </div>
   )
 }
+
+
+
 

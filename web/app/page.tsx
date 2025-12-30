@@ -20,8 +20,6 @@ import {
   Phone
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
-import SimpleLanguageSwitcher from '@/components/SimpleLanguageSwitcher'
-import MobileNav from '@/components/MobileNav'
 
 export default function LandingPage() {
   const [mounted, setMounted] = useState(false)
@@ -31,28 +29,25 @@ export default function LandingPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white overflow-hidden">
       {/* Gradient Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-sky-50 via-white to-emerald-50 pointer-events-none" />
       
-      {/* Decorative Circles - Hidden on very small screens, responsive sizes */}
-      <div className="hidden sm:block absolute top-0 right-0 w-[300px] sm:w-[400px] md:w-[500px] lg:w-[600px] h-[300px] sm:h-[400px] md:h-[500px] lg:h-[600px] bg-gradient-to-br from-sky-400/10 to-emerald-400/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-      <div className="hidden sm:block absolute bottom-0 left-0 w-[200px] sm:w-[300px] md:w-[350px] lg:w-[400px] h-[200px] sm:h-[300px] md:h-[350px] lg:h-[400px] bg-gradient-to-tr from-sky-400/10 to-teal-400/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+      {/* Decorative Circles */}
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gradient-to-br from-sky-400/10 to-emerald-400/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-sky-400/10 to-teal-400/10 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2 pointer-events-none" />
 
       {/* Navigation */}
-      <nav className="relative z-50 container mx-auto px-4 sm:px-6 py-4 sm:py-5 flex justify-between items-center">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 sm:gap-3">
-          <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-sky-500 to-emerald-500 rounded-xl flex items-center justify-center heartbeat-container relative">
-            <Heart className="w-5 h-5 sm:w-6 sm:h-6 text-white heartbeat" fill="white" />
+      <nav className="relative z-50 container mx-auto px-6 py-5 flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-br from-sky-500 to-emerald-500 rounded-xl flex items-center justify-center">
+            <Heart className="w-6 h-6 text-white" fill="white" />
           </div>
-          <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-sky-600 to-emerald-600 bg-clip-text text-transparent">
+          <span className="text-2xl font-bold bg-gradient-to-r from-sky-600 to-emerald-600 bg-clip-text text-transparent">
             SANGMAN
           </span>
-        </Link>
-
-        {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center gap-6 lg:gap-8">
+        </div>
+        <div className="hidden md:flex items-center gap-8">
           <Link href="#features" className="text-gray-600 hover:text-sky-600 transition-colors font-medium">
             Features
           </Link>
@@ -65,77 +60,69 @@ export default function LandingPage() {
           <Link href="/auth/login?role=doctor" className="text-gray-600 hover:text-sky-600 transition-colors font-medium">
             Doctor Login
           </Link>
-          {/* Language Switcher */}
-          <SimpleLanguageSwitcher />
         </div>
-
-        {/* Desktop Auth Buttons + Mobile Menu */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-3">
           <Link
             href="/auth/login"
-            className="hidden md:block px-4 lg:px-5 py-2.5 text-sky-600 font-semibold hover:text-sky-700 transition-colors"
+            className="hidden sm:block px-5 py-2.5 text-sky-600 font-semibold hover:text-sky-700 transition-colors"
           >
             Log in
           </Link>
           <Link
             href="/auth/register"
-            className="hidden sm:block px-4 lg:px-5 py-2.5 bg-gradient-to-r from-sky-500 to-emerald-500 text-white font-semibold rounded-xl hover:from-sky-600 hover:to-emerald-600 transition-all shadow-lg shadow-sky-500/25 hover:shadow-sky-500/40 text-sm sm:text-base"
+            className="px-5 py-2.5 bg-gradient-to-r from-sky-500 to-emerald-500 text-white font-semibold rounded-xl hover:from-sky-600 hover:to-emerald-600 transition-all shadow-lg shadow-sky-500/25 hover:shadow-sky-500/40"
           >
             Get Started
           </Link>
-          
-          {/* Mobile Menu Button */}
-          <MobileNav />
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section className="relative z-10 container mx-auto px-4 sm:px-6 pt-8 sm:pt-12 md:pt-16 pb-16 sm:pb-20 md:pb-24">
+      <section className="relative z-10 container mx-auto px-6 pt-16 pb-24">
         <div className="max-w-4xl mx-auto text-center">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-sky-100 text-sky-700 rounded-full text-xs sm:text-sm font-medium mb-6 sm:mb-8">
-            <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="hidden sm:inline">India's Most Patient-Friendly Healthcare Platform</span>
-            <span className="sm:hidden">Patient-Friendly Healthcare</span>
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-sky-100 text-sky-700 rounded-full text-sm font-medium mb-8">
+            <Zap className="w-4 h-4" />
+            India's Most Patient-Friendly Healthcare Platform
           </div>
 
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-gray-900 mb-4 sm:mb-6 leading-tight px-2">
+          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-gray-900 mb-6 leading-tight">
             Reducing Hospital Queues,
             <span className="bg-gradient-to-r from-sky-500 to-emerald-500 bg-clip-text text-transparent"> One Booking at a Time</span>
           </h1>
           
-          <p className="text-base sm:text-lg md:text-xl lg:text-2xl text-gray-600 mb-8 sm:mb-10 max-w-3xl mx-auto leading-relaxed px-2">
+          <p className="text-xl md:text-2xl text-gray-600 mb-10 max-w-3xl mx-auto leading-relaxed">
             Sync online + walk-in patients into one system. Real hospital queue management, verified doctors, and instant booking—all in one platform.
           </p>
 
-          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center mb-10 sm:mb-16 px-4">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
             <Link 
               href="/auth/register?role=patient" 
-              className="inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3.5 sm:py-4 bg-gradient-to-r from-sky-500 to-emerald-500 text-white font-semibold text-base sm:text-lg rounded-xl sm:rounded-2xl hover:from-sky-600 hover:to-emerald-600 transition-all shadow-xl shadow-sky-500/30 hover:shadow-sky-500/50 active:scale-95 sm:hover:scale-105"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-sky-500 to-emerald-500 text-white font-semibold text-lg rounded-2xl hover:from-sky-600 hover:to-emerald-600 transition-all shadow-xl shadow-sky-500/30 hover:shadow-sky-500/50 hover:scale-105"
             >
               Book Appointment
               <ArrowRight className="w-5 h-5" />
             </Link>
             <Link 
               href="/auth/register?role=doctor" 
-              className="inline-flex items-center justify-center gap-2 px-6 sm:px-8 py-3.5 sm:py-4 bg-white text-gray-700 font-semibold text-base sm:text-lg rounded-xl sm:rounded-2xl border-2 border-gray-200 hover:border-sky-500 hover:text-sky-600 transition-all shadow-lg hover:shadow-xl active:scale-95"
+              className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-gray-700 font-semibold text-lg rounded-2xl border-2 border-gray-200 hover:border-sky-500 hover:text-sky-600 transition-all shadow-lg hover:shadow-xl"
             >
               Join as Doctor / Hospital
             </Link>
           </div>
 
           {/* Trust Indicators */}
-          <div className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-4 sm:gap-8 text-gray-500 text-sm sm:text-base">
+          <div className="flex flex-wrap items-center justify-center gap-8 text-gray-500">
             <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" />
+              <CheckCircle className="w-5 h-5 text-emerald-500" />
               <span>100% Verified Doctors</span>
             </div>
             <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" />
+              <CheckCircle className="w-5 h-5 text-emerald-500" />
               <span>No Hidden Charges</span>
             </div>
             <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500" />
+              <CheckCircle className="w-5 h-5 text-emerald-500" />
               <span>Fast Customer Support</span>
             </div>
           </div>
@@ -143,66 +130,66 @@ export default function LandingPage() {
       </section>
 
       {/* Stats Section - Inspired by Induction Healthcare */}
-      <section className="relative z-10 py-10 sm:py-12 md:py-16 bg-gradient-to-r from-sky-600 via-sky-500 to-emerald-500">
-        <div className="container mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 md:gap-8 text-center text-white">
-            <div className="p-4 sm:p-6">
-              <div className="text-3xl sm:text-4xl md:text-5xl font-bold mb-1 sm:mb-2">50%</div>
-              <div className="text-sky-100 font-medium text-xs sm:text-sm md:text-base">Reduction in Wait Times</div>
+      <section className="relative z-10 py-16 bg-gradient-to-r from-sky-600 via-sky-500 to-emerald-500">
+        <div className="container mx-auto px-6">
+          <div className="grid md:grid-cols-4 gap-8 text-center text-white">
+            <div className="p-6">
+              <div className="text-5xl font-bold mb-2">50%</div>
+              <div className="text-sky-100 font-medium">Reduction in Wait Times</div>
             </div>
-            <div className="p-4 sm:p-6">
-              <div className="text-3xl sm:text-4xl md:text-5xl font-bold mb-1 sm:mb-2">10K+</div>
-              <div className="text-sky-100 font-medium text-xs sm:text-sm md:text-base">Appointments Delivered</div>
+            <div className="p-6">
+              <div className="text-5xl font-bold mb-2">10K+</div>
+              <div className="text-sky-100 font-medium">Appointments Delivered</div>
             </div>
-            <div className="p-4 sm:p-6">
-              <div className="text-3xl sm:text-4xl md:text-5xl font-bold mb-1 sm:mb-2">500+</div>
-              <div className="text-sky-100 font-medium text-xs sm:text-sm md:text-base">Verified Doctors</div>
+            <div className="p-6">
+              <div className="text-5xl font-bold mb-2">500+</div>
+              <div className="text-sky-100 font-medium">Verified Doctors</div>
             </div>
-            <div className="p-4 sm:p-6">
-              <div className="flex items-center justify-center gap-1 text-3xl sm:text-4xl md:text-5xl font-bold mb-1 sm:mb-2">
-                4.9 <Star className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 fill-yellow-400 text-yellow-400" />
+            <div className="p-6">
+              <div className="flex items-center justify-center gap-1 text-5xl font-bold mb-2">
+                4.9 <Star className="w-8 h-8 fill-yellow-400 text-yellow-400" />
               </div>
-              <div className="text-sky-100 font-medium text-xs sm:text-sm md:text-base">Patient Satisfaction</div>
+              <div className="text-sky-100 font-medium">Patient Satisfaction</div>
             </div>
           </div>
         </div>
       </section>
 
       {/* What Makes Us Different - Key Differentiators */}
-      <section id="why-us" className="relative z-10 py-12 sm:py-16 md:py-24 bg-white">
-        <div className="container mx-auto px-4 sm:px-6">
-          <div className="text-center mb-10 sm:mb-12 md:mb-16">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 mb-3 sm:mb-4 px-2">
+      <section id="why-us" className="relative z-10 py-24 bg-white">
+        <div className="container mx-auto px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
               Why Sangman is <span className="text-sky-500">Different</span>
             </h2>
-            <p className="text-base sm:text-lg md:text-xl text-gray-600 max-w-2xl mx-auto px-4">
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               We solve real problems that other platforms ignore—designed for Indian hospitals and patients.
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
+          <div className="grid md:grid-cols-3 gap-8">
             {/* Card 1 - Queue Management */}
-            <div className="group p-5 sm:p-6 md:p-8 bg-gradient-to-br from-sky-50 to-white rounded-2xl sm:rounded-3xl border-2 border-sky-100 hover:border-sky-300 transition-all hover:shadow-2xl hover:shadow-sky-500/10">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 bg-gradient-to-br from-sky-500 to-sky-600 rounded-xl sm:rounded-2xl flex items-center justify-center mb-4 sm:mb-6 group-hover:scale-110 transition-transform">
-                <TrendingDown className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-white" />
+            <div className="group p-8 bg-gradient-to-br from-sky-50 to-white rounded-3xl border-2 border-sky-100 hover:border-sky-300 transition-all hover:shadow-2xl hover:shadow-sky-500/10">
+              <div className="w-16 h-16 bg-gradient-to-br from-sky-500 to-sky-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <TrendingDown className="w-8 h-8 text-white" />
               </div>
-              <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 mb-2 sm:mb-3">
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">
                 Real Queue Reduction
               </h3>
-              <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4 leading-relaxed">
-                Unlike others, we sync <strong>online + walk-in patients</strong> into one unified system.
+              <p className="text-gray-600 mb-4 leading-relaxed">
+                Unlike others, we sync <strong>online + walk-in patients</strong> into one unified system. Hospitals can manage both from a single dashboard.
               </p>
               <ul className="space-y-2">
-                <li className="flex items-center gap-2 text-gray-600 text-sm sm:text-base">
-                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500 flex-shrink-0" />
+                <li className="flex items-center gap-2 text-gray-600">
+                  <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0" />
                   <span>Offline patients entered by admin</span>
                 </li>
-                <li className="flex items-center gap-2 text-gray-600 text-sm sm:text-base">
-                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500 flex-shrink-0" />
+                <li className="flex items-center gap-2 text-gray-600">
+                  <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0" />
                   <span>Real-time queue position</span>
                 </li>
-                <li className="flex items-center gap-2 text-gray-600 text-sm sm:text-base">
-                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500 flex-shrink-0" />
+                <li className="flex items-center gap-2 text-gray-600">
+                  <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0" />
                   <span>SMS queue updates</span>
                 </li>
               </ul>

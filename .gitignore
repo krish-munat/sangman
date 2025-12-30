@@ -9,6 +9,8 @@ node_modules/
 # Next.js
 /.next/
 /out/
+web/.next/
+**/.next/
 
 # Production
 /build

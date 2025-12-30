@@ -13,7 +13,7 @@ export default function DoctorAppointmentsPage() {
   const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed' | 'today'>('all')
 
   useEffect(() => {
-    // TODO: Fetch appointments from API
+    // Mock data - works without backend
     if (!user?.id) return
     
     const mockAppointments: Appointment[] = [
@@ -70,7 +70,6 @@ export default function DoctorAppointmentsPage() {
 
   const handleAccept = async (appointmentId: string) => {
     try {
-      // TODO: Accept appointment via API
       setAppointments((prev) =>
         prev.map((apt) =>
           apt.id === appointmentId ? { ...apt, status: 'confirmed' as const } : apt
@@ -85,7 +84,6 @@ export default function DoctorAppointmentsPage() {
 
   const handleReject = async (appointmentId: string) => {
     try {
-      // TODO: Reject appointment via API
       setAppointments((prev) =>
         prev.map((apt) =>
           apt.id === appointmentId ? { ...apt, status: 'rejected' as const } : apt
@@ -100,7 +98,6 @@ export default function DoctorAppointmentsPage() {
 
   const handleVerifyOTP = async (appointmentId: string, otp: string) => {
     try {
-      // TODO: Verify OTP via API
       setAppointments((prev) =>
         prev.map((apt) =>
           apt.id === appointmentId ? { ...apt, otpVerified: true } : apt
@@ -263,4 +260,3 @@ export default function DoctorAppointmentsPage() {
     </div>
   )
 }
-

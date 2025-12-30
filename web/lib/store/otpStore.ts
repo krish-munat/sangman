@@ -176,4 +176,3 @@ export const useOTPStore = create<OTPState>((set, get) => ({
     }, 1000)
   },
 }))
-

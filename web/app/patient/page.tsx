@@ -2,13 +2,20 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Calendar, Search, AlertCircle, TrendingUp, Clock } from 'lucide-react'
+import { 
+  Calendar, Search, AlertCircle, TrendingUp, Clock, 
+  Zap, FlaskConical, Pill, FileText, Heart, Mic,
+  Stethoscope, ChevronRight, Sparkles, Shield
+} from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
+import { useAppointmentStore } from '@/lib/store/appointmentStore'
 import { formatDate } from '@/lib/utils/format'
+import VoiceSearchInput from '@/components/search/VoiceSearchInput'
 import type { Appointment } from '../../../shared/types'
 
 export default function PatientHomePage() {
   const { user } = useAuthStore()
+  const appointments = useAppointmentStore((state) => state.appointments)
   const [upcomingAppointments, setUpcomingAppointments] = useState<Appointment[]>([])
   const [stats, setStats] = useState({
     totalAppointments: 0,
@@ -17,14 +24,60 @@ export default function PatientHomePage() {
   })
 
   useEffect(() => {
-    // TODO: Fetch data from API
-    setUpcomingAppointments([])
-    setStats({
-      totalAppointments: 0,
-      upcomingAppointments: 0,
-      completedAppointments: 0,
-    })
-  }, [])
+    // Filter appointments for current user
+    if (user?.id) {
+      const userAppointments = appointments.filter(
+        (a: any) => a.patientId === user.id || a.patient?.id === user.id
+      )
+      const upcoming = userAppointments.filter(
+        (a: any) => a.status === 'confirmed' || a.status === 'pending'
+      )
+      const completed = userAppointments.filter((a: any) => a.status === 'completed')
+      
+      setUpcomingAppointments(upcoming.slice(0, 3))
+      setStats({
+        totalAppointments: userAppointments.length,
+        upcomingAppointments: upcoming.length,
+        completedAppointments: completed.length,
+      })
+    }
+  }, [appointments, user])
+
+  // Sangman exclusive services
+  const sangmanServices = [
+    {
+      title: 'Sangman Now',
+      description: 'Medicines in 15 mins',
+      icon: Zap,
+      href: '/patient/pharmacy',
+      gradient: 'from-emerald-500 to-teal-500',
+      badge: '⚡ Fast',
+    },
+    {
+      title: 'Lab Tests',
+      description: 'Home collection with escrow',
+      icon: FlaskConical,
+      href: '/patient/labs',
+      gradient: 'from-sky-500 to-indigo-500',
+      badge: '🔒 Safe',
+    },
+    {
+      title: 'Pill Wallet',
+      description: 'Track meds, earn rewards',
+      icon: Pill,
+      href: '/patient/medications',
+      gradient: 'from-purple-500 to-pink-500',
+      badge: '💰 Earn',
+    },
+    {
+      title: 'Health Reports',
+      description: 'AI-decoded lab reports',
+      icon: FileText,
+      href: '/patient/reports',
+      gradient: 'from-indigo-500 to-purple-500',
+      badge: '🤖 AI',
+    },
+  ]
 
   const quickActions = [
     {
@@ -51,156 +104,266 @@ export default function PatientHomePage() {
   ]
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-900 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-sky-50 dark:from-slate-900 dark:to-slate-800 py-8">
       <div className="container mx-auto px-4 max-w-7xl">
-        {/* Welcome Section */}
+        {/* Welcome Section with Voice Search */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-neutral-900 dark:text-neutral-100 mb-2">
-            Welcome back, {(user as any)?.name || 'Patient'}!
-          </h1>
-          <p className="text-neutral-600 dark:text-neutral-400">
-            Manage your health appointments and discover trusted doctors
-          </p>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-sky-500 to-blue-600 rounded-xl flex items-center justify-center">
+              <Heart className="w-6 h-6 text-white" fill="white" />
+            </div>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
+                Hello, {(user as any)?.name?.split(' ')[0] || 'there'}! 👋
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                How can we help you today?
+              </p>
+            </div>
+          </div>
+          
+          {/* Voice-First Search */}
+          <div className="max-w-2xl">
+            <VoiceSearchInput 
+              placeholder="Search doctors, symptoms, or say 'Pet me dard'..."
+              autoNavigate={true}
+            />
+            <p className="mt-2 text-sm text-gray-500 flex items-center gap-1">
+              <Mic className="w-4 h-4" />
+              <span>Voice search supports Hindi & English</span>
+            </p>
+          </div>
+        </div>
+
+        {/* Sangman Exclusive Services */}
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Sparkles className="w-5 h-5 text-amber-500" />
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Sangman Exclusive
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {sangmanServices.map((service) => {
+              const Icon = service.icon
+              return (
+                <Link
+                  key={service.title}
+                  href={service.href}
+                  className="relative bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm 
+                    hover:shadow-lg transition-all border border-gray-100 dark:border-gray-700
+                    group overflow-hidden"
+                >
+                  {/* Badge */}
+                  <span className="absolute top-3 right-3 text-xs font-medium px-2 py-0.5 
+                    bg-gray-100 dark:bg-gray-700 rounded-full text-gray-600 dark:text-gray-300">
+                    {service.badge}
+                  </span>
+                  
+                  {/* Icon */}
+                  <div className={`w-12 h-12 bg-gradient-to-br ${service.gradient} rounded-xl 
+                    flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
+                    <Icon className="w-6 h-6 text-white" />
+                  </div>
+                  
+                  <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+                    {service.title}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {service.description}
+                  </p>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Trust Banner */}
+        <div className="mb-8 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl p-6 text-white">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
+              <Shield className="w-7 h-7" />
+            </div>
+            <div className="flex-1">
+              <h3 className="font-semibold text-lg">Sangman Trust Engine™</h3>
+              <p className="text-white/80 text-sm">
+                Your payments are held securely until service is delivered. 100% refund guaranteed.
+              </p>
+            </div>
+            <Link 
+              href="/patient/discover" 
+              className="hidden md:flex items-center gap-1 bg-white/20 px-4 py-2 rounded-lg 
+                hover:bg-white/30 transition-colors font-medium"
+            >
+              Book with Trust
+              <ChevronRight className="w-4 h-4" />
+            </Link>
+          </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
-          <div className="card">
+        <div className="grid md:grid-cols-3 gap-4 mb-8">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-1">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
                   Total Appointments
                 </p>
-                <p className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+                <p className="text-3xl font-bold text-gray-900 dark:text-white">
                   {stats.totalAppointments}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-primary-500" />
+              <div className="w-12 h-12 bg-sky-100 dark:bg-sky-900/30 rounded-full flex items-center justify-center">
+                <Calendar className="w-6 h-6 text-sky-500" />
               </div>
             </div>
           </div>
 
-          <div className="card">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-1">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
                   Upcoming
                 </p>
-                <p className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+                <p className="text-3xl font-bold text-gray-900 dark:text-white">
                   {stats.upcomingAppointments}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-success-100 dark:bg-success-900 rounded-full flex items-center justify-center">
-                <Clock className="w-6 h-6 text-success-500" />
+              <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
+                <Clock className="w-6 h-6 text-emerald-500" />
               </div>
             </div>
           </div>
 
-          <div className="card">
+          <div className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm border border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400 mb-1">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
                   Completed
                 </p>
-                <p className="text-3xl font-bold text-neutral-900 dark:text-neutral-100">
+                <p className="text-3xl font-bold text-gray-900 dark:text-white">
                   {stats.completedAppointments}
                 </p>
               </div>
-              <div className="w-12 h-12 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center">
-                <TrendingUp className="w-6 h-6 text-primary-500" />
+              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center">
+                <TrendingUp className="w-6 h-6 text-purple-500" />
               </div>
             </div>
           </div>
         </div>
 
         {/* Quick Actions */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
-          {quickActions.map((action) => {
-            const Icon = action.icon
-            return (
-              <Link
-                key={action.title}
-                href={action.href}
-                className="card hover:shadow-lg transition-shadow cursor-pointer"
-              >
-                <div
-                  className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 flex-shrink-0 ${
-                    action.color === 'primary'
-                      ? 'bg-primary-100 dark:bg-primary-900'
-                      : action.color === 'success'
-                      ? 'bg-success-100 dark:bg-success-900'
-                      : 'bg-emergency-100 dark:bg-emergency-900'
-                  }`}
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            Quick Actions
+          </h2>
+          <div className="grid md:grid-cols-3 gap-4">
+            {quickActions.map((action) => {
+              const Icon = action.icon
+              return (
+                <Link
+                  key={action.title}
+                  href={action.href}
+                  className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm 
+                    hover:shadow-md transition-all border border-gray-100 dark:border-gray-700
+                    flex items-center gap-4"
                 >
-                  <Icon
-                    className={`w-6 h-6 ${
+                  <div
+                    className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
                       action.color === 'primary'
-                        ? 'text-primary-500'
+                        ? 'bg-sky-100 dark:bg-sky-900/30'
                         : action.color === 'success'
-                        ? 'text-success-500'
-                        : 'text-emergency-500'
+                        ? 'bg-emerald-100 dark:bg-emerald-900/30'
+                        : 'bg-red-100 dark:bg-red-900/30'
                     }`}
-                  />
-                </div>
-                <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-1">
-                  {action.title}
-                </h3>
-                <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                  {action.description}
-                </p>
-              </Link>
-            )
-          })}
+                  >
+                    <Icon
+                      className={`w-6 h-6 ${
+                        action.color === 'primary'
+                          ? 'text-sky-500'
+                          : action.color === 'success'
+                          ? 'text-emerald-500'
+                          : 'text-red-500'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                      {action.title}
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {action.description}
+                    </p>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-gray-400 ml-auto" />
+                </Link>
+              )
+            })}
+          </div>
         </div>
 
         {/* Upcoming Appointments */}
-        <div className="card">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-neutral-900 dark:text-neutral-100">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Upcoming Appointments
             </h2>
             <Link
               href="/patient/appointments"
-              className="text-primary-500 hover:text-primary-600 text-sm font-medium"
+              className="text-sky-500 hover:text-sky-600 text-sm font-medium flex items-center gap-1"
             >
               View All
+              <ChevronRight className="w-4 h-4" />
             </Link>
           </div>
 
           {upcomingAppointments.length === 0 ? (
             <div className="text-center py-12">
-              <Calendar className="w-16 h-16 text-neutral-400 mx-auto mb-4" />
-              <p className="text-neutral-600 dark:text-neutral-400 mb-4">
+              <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Stethoscope className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                 No upcoming appointments
+              </h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-6">
+                Book a consultation with a verified doctor today
               </p>
-              <Link href="/patient/discover" className="btn-primary">
-                Book an Appointment
+              <Link 
+                href="/patient/discover" 
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-sky-500 to-blue-600 
+                  text-white rounded-xl font-medium hover:from-sky-600 hover:to-blue-700 transition-all shadow-lg"
+              >
+                <Search className="w-5 h-5" />
+                Find Doctors
               </Link>
             </div>
           ) : (
             <div className="space-y-4">
-              {upcomingAppointments.map((appointment) => (
+              {upcomingAppointments.map((appointment: any, index) => (
                 <div
                   key={appointment.id}
-                  className="border border-neutral-200 dark:border-neutral-700 rounded-lg p-4"
+                  className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl"
                 >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="font-semibold text-neutral-900 dark:text-neutral-100">
-                        {appointment.doctor?.name}
-                      </h3>
-                      <p className="text-sm text-neutral-600 dark:text-neutral-400">
-                        {formatDate(appointment.date, 'EEEE, MMMM d, yyyy')} at{' '}
-                        {appointment.timeSlot.start}
-                      </p>
-                    </div>
-                    {appointment.type === 'emergency' && (
-                      <span className="px-2 py-1 bg-emergency-100 text-emergency-700 text-xs rounded">
-                        Emergency
-                      </span>
-                    )}
+                  <div className="w-12 h-12 bg-gradient-to-br from-sky-400 to-blue-500 rounded-full 
+                    flex items-center justify-center text-white font-bold text-lg">
+                    {index + 1}
                   </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                      {appointment.doctor?.name || appointment.doctorName || 'Doctor'}
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {formatDate(appointment.date, 'EEEE, MMMM d')} at{' '}
+                      {appointment.timeSlot?.start || appointment.time}
+                    </p>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    appointment.type === 'emergency'
+                      ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                      : 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400'
+                  }`}>
+                    {appointment.type === 'emergency' ? 'Emergency' : 'Scheduled'}
+                  </span>
                 </div>
               ))}
             </div>
@@ -210,4 +373,3 @@ export default function PatientHomePage() {
     </div>
   )
 }
-

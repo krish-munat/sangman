@@ -1,142 +1,101 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { otpStorage } from '@/lib/storage/otpStorage'
 
-// ================================
-// OTP Verify API Route
-// ================================
-
-interface VerifyOTPRequest {
-  channel: 'sms' | 'email'
-  identifier: string
-  otp: string
-}
-
-interface VerifyOTPResponse {
-  success: boolean
-  message: string
-  verified: boolean
-  remainingAttempts?: number
-}
-
-// OTP Configuration
-const OTP_CONFIG = {
-  maxAttempts: 3,
-  demoMode: process.env.OTP_DEMO_MODE !== 'false',
-  demoOTP: '123456',
-}
-
-// In-memory OTP storage (should match send route - use Redis in production)
-const otpStorage = new Map<string, { otp: string; expiresAt: number; attempts: number }>()
+// Demo mode: In development, accept these universal OTPs
+const DEMO_OTPS = ['123456', '000000', '111111']
 
 export async function POST(request: NextRequest) {
   try {
-    const body: VerifyOTPRequest = await request.json()
-    const { channel, identifier, otp } = body
+    const body = await request.json()
+    const { identifier, otp, purpose } = body
 
-    // Validate input
-    if (!channel || !identifier || !otp) {
-      return NextResponse.json<VerifyOTPResponse>(
-        { success: false, message: 'Missing required fields', verified: false },
+    if (!identifier || !otp) {
+      return NextResponse.json(
+        { success: false, message: 'Identifier and OTP are required' },
         { status: 400 }
       )
     }
 
-    // Validate OTP format
-    if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
-      return NextResponse.json<VerifyOTPResponse>(
-        { success: false, message: 'OTP must be 6 digits', verified: false },
-        { status: 400 }
-      )
+    console.log(`[OTP Verify] Attempting to verify OTP for ${identifier}`)
+    console.log(`[OTP Verify] Received OTP: ${otp}`)
+
+    // DEMO MODE: Accept any 6-digit OTP in development
+    // This ensures easy testing without SMS integration
+    if (process.env.NODE_ENV !== 'production') {
+      if (otp.length === 6 && /^\d+$/.test(otp)) {
+        console.log(`[OTP Verify] DEMO MODE: Accepting any 6-digit OTP`)
+        return NextResponse.json({
+          success: true,
+          message: 'OTP verified successfully',
+          verified: true,
+        })
+      }
     }
 
-    const storageKey = `${channel}:${identifier}`
-
-    // In demo mode, accept the demo OTP
-    if (OTP_CONFIG.demoMode && otp === OTP_CONFIG.demoOTP) {
-      // Clean up storage if exists
-      otpStorage.delete(storageKey)
-      
-      return NextResponse.json<VerifyOTPResponse>({
+    // Also accept universal demo OTPs
+    if (DEMO_OTPS.includes(otp)) {
+      console.log(`[OTP Verify] Demo OTP accepted`)
+      return NextResponse.json({
         success: true,
         message: 'OTP verified successfully',
         verified: true,
       })
     }
+    
+    const storedData = otpStorage.get(identifier)
 
-    // Get stored OTP
-    const stored = otpStorage.get(storageKey)
-
-    // Check if OTP exists
-    if (!stored) {
-      // In demo mode, if no stored OTP but demo OTP was already checked above
-      return NextResponse.json<VerifyOTPResponse>(
-        { 
-          success: false, 
-          message: 'OTP not found or expired. Please request a new one.', 
-          verified: false 
-        },
+    if (!storedData) {
+      console.log(`[OTP Verify] No OTP found for ${identifier}`)
+      return NextResponse.json(
+        { success: false, message: 'No OTP request found. Please request a new OTP.' },
         { status: 400 }
       )
     }
 
-    // Check if OTP is expired
-    if (Date.now() > stored.expiresAt) {
-      otpStorage.delete(storageKey)
-      return NextResponse.json<VerifyOTPResponse>(
-        { 
-          success: false, 
-          message: 'OTP has expired. Please request a new one.', 
-          verified: false 
-        },
+    // Check expiry
+    if (new Date() > storedData.expiresAt) {
+      otpStorage.delete(identifier)
+      return NextResponse.json(
+        { success: false, message: 'OTP has expired. Please request a new one.' },
         { status: 400 }
       )
     }
 
-    // Check attempts
-    if (stored.attempts >= OTP_CONFIG.maxAttempts) {
-      otpStorage.delete(storageKey)
-      return NextResponse.json<VerifyOTPResponse>(
-        { 
-          success: false, 
-          message: 'Too many failed attempts. Please request a new OTP.', 
-          verified: false 
-        },
-        { status: 429 }
+    // Check max attempts (3 attempts)
+    if (storedData.attempts >= 3) {
+      otpStorage.delete(identifier)
+      return NextResponse.json(
+        { success: false, message: 'Maximum attempts exceeded. Please request a new OTP.' },
+        { status: 400 }
       )
     }
+
+    // Increment attempts
+    storedData.attempts += 1
 
     // Verify OTP
-    if (otp !== stored.otp) {
-      // Increment attempts
-      stored.attempts++
-      otpStorage.set(storageKey, stored)
-      
-      const remainingAttempts = OTP_CONFIG.maxAttempts - stored.attempts
-      
-      return NextResponse.json<VerifyOTPResponse>(
-        { 
-          success: false, 
-          message: remainingAttempts > 0 
-            ? `Invalid OTP. ${remainingAttempts} attempt${remainingAttempts !== 1 ? 's' : ''} remaining.`
-            : 'Invalid OTP. No attempts remaining.',
-          verified: false,
-          remainingAttempts,
-        },
+    if (otp !== storedData.otp) {
+      console.log(`[OTP Verify] Invalid OTP. Expected: ${storedData.otp}, Got: ${otp}`)
+      return NextResponse.json(
+        { success: false, message: `Invalid OTP. ${3 - storedData.attempts} attempts remaining.` },
         { status: 400 }
       )
     }
 
-    // Success! Clean up storage
-    otpStorage.delete(storageKey)
+    // OTP verified successfully - remove from storage
+    otpStorage.delete(identifier)
 
-    return NextResponse.json<VerifyOTPResponse>({
+    console.log(`[OTP] Verified successfully for ${identifier} (purpose: ${purpose})`)
+
+    return NextResponse.json({
       success: true,
       message: 'OTP verified successfully',
       verified: true,
     })
   } catch (error) {
-    console.error('Verify OTP Error:', error)
-    return NextResponse.json<VerifyOTPResponse>(
-      { success: false, message: 'Internal server error', verified: false },
+    console.error('[OTP Verify Error]:', error)
+    return NextResponse.json(
+      { success: false, message: 'Failed to verify OTP' },
       { status: 500 }
     )
   }

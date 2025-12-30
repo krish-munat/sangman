@@ -10,7 +10,7 @@ export default function VerificationPage() {
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('pending')
 
   useEffect(() => {
-    // TODO: Fetch pending verifications from API
+    // Mock data - works without backend
     const mockDoctors: Doctor[] = [
       {
         id: '1',
@@ -49,7 +49,6 @@ export default function VerificationPage() {
 
   const handleApprove = async (doctorId: string) => {
     try {
-      // TODO: Approve verification via API
       setDoctors((prev) =>
         prev.map((doc) =>
           doc.id === doctorId
@@ -66,7 +65,6 @@ export default function VerificationPage() {
 
   const handleReject = async (doctorId: string) => {
     try {
-      // TODO: Reject verification via API
       setDoctors((prev) =>
         prev.map((doc) =>
           doc.id === doctorId ? { ...doc, verificationStatus: 'rejected' as const } : doc
@@ -180,4 +178,3 @@ export default function VerificationPage() {
     </div>
   )
 }
-

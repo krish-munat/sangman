@@ -17,10 +17,9 @@ import {
   Sun,
   Menu,
   X,
-  MapPin,
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
-import LocationPermission from '@/components/LocationPermission'
+import { SOSButton } from '@/components/emergency/SOSButton'
 
 export default function PatientLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -76,8 +75,8 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
     return (
       <div className="min-h-screen bg-gradient-to-br from-sky-50 to-cyan-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 bg-gradient-to-br from-sky-500 to-cyan-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <Heart className="w-8 h-8 text-white heartbeat" />
+          <div className="w-16 h-16 bg-gradient-to-br from-sky-500 to-cyan-600 rounded-2xl flex items-center justify-center mx-auto mb-4 animate-pulse">
+            <Heart className="w-8 h-8 text-white" />
           </div>
           <p className="text-gray-500">Loading...</p>
         </div>
@@ -97,7 +96,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-gradient-to-br from-sky-500 to-cyan-600 rounded-lg flex items-center justify-center">
-              <Heart className="w-5 h-5 text-white heartbeat" fill="white" />
+              <Heart className="w-5 h-5 text-white" fill="white" />
             </div>
             <span className="text-lg font-bold bg-gradient-to-r from-sky-600 to-cyan-600 bg-clip-text text-transparent">
               SANGMAN
@@ -129,7 +128,7 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
         <div className="p-6 border-b border-gray-200 dark:border-neutral-700">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-sky-500 to-cyan-600 rounded-xl flex items-center justify-center">
-              <Heart className="w-6 h-6 text-white heartbeat" fill="white" />
+              <Heart className="w-6 h-6 text-white" fill="white" />
             </div>
             <span className="text-xl font-bold bg-gradient-to-r from-sky-600 to-cyan-600 bg-clip-text text-transparent">
               SANGMAN
@@ -200,14 +199,8 @@ export default function PatientLayout({ children }: { children: React.ReactNode 
       {/* Main Content */}
       <main className="lg:ml-64 pt-16 lg:pt-0 min-h-screen">{children}</main>
 
-      {/* Location Permission Modal - Shows once on first visit */}
-      <LocationPermission 
-        showOnMount={true}
-        variant="modal"
-        onSuccess={(location) => {
-          console.log('Location granted:', location)
-        }}
-      />
+      {/* Floating SOS Button */}
+      <SOSButton />
     </div>
   )
 }

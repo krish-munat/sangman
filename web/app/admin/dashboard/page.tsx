@@ -21,7 +21,7 @@ export default function AdminDashboard() {
   })
 
   useEffect(() => {
-    // TODO: Fetch analytics from API
+    // Mock data - works without backend
     setAnalytics({
       totalPatients: 10000,
       totalDoctors: 500,
@@ -198,4 +198,3 @@ export default function AdminDashboard() {
     </div>
   )
 }
-

@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { Search, MapPin, Star, Clock, AlertCircle, Navigation, Loader2 } from 'lucide-react'
+import { Search, MapPin, Star, Clock, AlertCircle, Navigation, Loader2, Mic } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
+import { VoiceSearchInline } from '@/components/search/VoiceSearchButton'
 import type { Doctor } from '../../../../shared/types'
 import { SPECIALIZATIONS } from '../../../../shared/constants'
 import { formatCurrency, formatLocationDistance } from '@/lib/utils/format'
@@ -82,8 +83,7 @@ export default function DiscoverPage() {
       console.warn('Geolocation is not supported by your browser')
     }
 
-    // TODO: Replace with actual API call
-    // Mock doctors data
+    // Mock doctors data - works without backend
     const mockDoctors: Doctor[] = [
       {
         id: '1',
@@ -285,17 +285,36 @@ export default function DiscoverPage() {
             </div>
           </div>
 
-          {/* Search Bar */}
-          <div className="relative w-full mb-4">
-            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 dark:text-neutral-500" />
-            <input
-              type="text"
-              placeholder="Search by name or specialty..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 py-3 pl-12 pr-4 text-sm bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
-            />
+          {/* Search Bar with Voice Search */}
+          <div className="flex gap-2 mb-4">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400 dark:text-neutral-500" />
+              <input
+                type="text"
+                placeholder="Search by name or specialty... or tap mic to speak"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-lg border border-neutral-300 dark:border-neutral-600 py-3 pl-12 pr-4 text-sm bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+              />
+            </div>
+            {/* Voice Search Button */}
+            <button
+              onClick={() => {
+                // Voice search is handled by VoiceSearchButton component
+                // This is a visual indicator that voice search is available
+              }}
+              className="flex items-center justify-center w-12 h-12 rounded-lg bg-gradient-to-r from-sky-500 to-emerald-500 text-white hover:opacity-90 transition-opacity shadow-lg"
+              title="Voice Search - Speak in Hindi, English, or Marathi"
+            >
+              <Mic className="w-5 h-5" />
+            </button>
           </div>
+          
+          {/* Voice Search Tip */}
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 flex items-center gap-1">
+            <Mic className="w-3 h-3" />
+            Try saying: "दिल का डॉक्टर" or "Cardiologist near me"
+          </p>
 
           {/* Filters */}
           <div className="flex flex-wrap gap-2">
