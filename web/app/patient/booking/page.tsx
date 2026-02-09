@@ -21,6 +21,15 @@ function BookingForm() {
   const [isEmergency, setIsEmergency] = useState(false)
   const [payment, setPayment] = useState<Payment | null>(null)
   const [step, setStep] = useState<'date' | 'time' | 'payment' | 'confirmation'>('date')
+  const [bookingFor, setBookingFor] = useState<'self' | 'other'>('self')
+  const [otherPatientDetails, setOtherPatientDetails] = useState({
+    name: '',
+    age: '',
+    phone: '',
+    gender: 'male' as 'male' | 'female' | 'other'
+  })
+  const [pastAppointments, setPastAppointments] = useState<Appointment[]>([])
+  const [showPastAppointments, setShowPastAppointments] = useState(false)
 
   useEffect(() => {
     if (doctorId) {
@@ -64,8 +73,34 @@ function BookingForm() {
         updatedAt: new Date().toISOString(),
       }
       setDoctor(mockDoctor)
+
+      // Load past appointments with this doctor
+      if (user?.id) {
+        const mockPastAppointments: Appointment[] = [
+          {
+            id: 'apt-past-1',
+            patientId: user.id,
+            doctorId: doctorId,
+            date: '2024-01-15',
+            timeSlot: { start: '10:00', end: '11:00', available: false },
+            type: 'normal',
+            status: 'completed',
+            otpVerified: true,
+            payment: {
+              consultationFee: 500,
+              platformFee: 35,
+              totalAmount: 535,
+              status: 'completed',
+              paymentMethod: 'card'
+            },
+            createdAt: new Date('2024-01-10').toISOString(),
+            updatedAt: new Date('2024-01-15').toISOString()
+          }
+        ]
+        setPastAppointments(mockPastAppointments)
+      }
     }
-  }, [doctorId])
+  }, [doctorId, user])
 
   useEffect(() => {
     if (doctor && selectedDate && selectedTimeSlot) {
@@ -85,6 +120,13 @@ function BookingForm() {
       setPayment(null)
     }
   }, [doctor, selectedDate, selectedTimeSlot, isEmergency, user])
+
+  const handleBookAgain = (appointment: Appointment) => {
+    // Auto-fill from past appointment
+    setIsEmergency(appointment.type === 'emergency')
+    setShowPastAppointments(false)
+    toast.success('Details pre-filled from your last appointment')
+  }
 
   const handleDateSelect = (date: string) => {
     try {
@@ -173,6 +215,50 @@ function BookingForm() {
           </div>
         </div>
 
+        {/* Past Appointments (if any) */}
+        {pastAppointments.length > 0 && (
+          <div className="bg-sky-50 dark:bg-sky-900/20 rounded-xl p-4 border border-sky-200 dark:border-sky-800 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-sky-900 dark:text-sky-100 flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Previous Visit{pastAppointments.length > 1 ? 's' : ''}
+              </h3>
+              <button
+                onClick={() => setShowPastAppointments(!showPastAppointments)}
+                className="text-xs text-sky-600 dark:text-sky-400 hover:underline"
+              >
+                {showPastAppointments ? 'Hide' : 'Show'} ({pastAppointments.length})
+              </button>
+            </div>
+
+            {showPastAppointments && (
+              <div className="space-y-2">
+                {pastAppointments.map((apt) => (
+                  <div
+                    key={apt.id}
+                    className="bg-white dark:bg-neutral-800 rounded-lg p-3 flex items-center justify-between"
+                  >
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
+                        {formatDate(apt.date, 'MMM d, yyyy')} at {apt.timeSlot.start}
+                      </p>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                        {apt.type === 'emergency' ? 'Emergency' : 'Normal'} • ₹{apt.payment.totalAmount}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleBookAgain(apt)}
+                      className="px-3 py-1.5 bg-sky-500 hover:bg-sky-600 text-white text-xs font-medium rounded-lg transition-colors"
+                    >
+                      Book Again
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Emergency Toggle */}
         <div className="bg-white dark:bg-neutral-800 rounded-xl p-6 border border-neutral-200 dark:border-neutral-700 mb-6">
           <label className="flex items-center cursor-pointer">
@@ -194,6 +280,115 @@ function BookingForm() {
               </p>
             </div>
           </label>
+        </div>
+
+        {/* Book For Toggle */}
+        <div className="bg-white dark:bg-neutral-800 rounded-xl p-6 border border-neutral-200 dark:border-neutral-700 mb-6">
+          <div className="mb-4">
+            <label className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2 block">
+              Booking for:
+            </label>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setBookingFor('self')}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                  bookingFor === 'self'
+                    ? 'bg-sky-500 text-white'
+                    : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'
+                }`}
+              >
+                Myself
+              </button>
+              <button
+                onClick={() => setBookingFor('other')}
+                className={`flex-1 py-2 px-4 rounded-lg font-medium transition-colors ${
+                  bookingFor === 'other'
+                    ? 'bg-sky-500 text-white'
+                    : 'bg-neutral-100 dark:bg-neutral-700 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-neutral-600'
+                }`}
+              >
+                Someone Else
+              </button>
+            </div>
+          </div>
+
+          {/* Patient Details Form (shown when booking for someone else) */}
+          {bookingFor === 'other' && (
+            <div className="space-y-4 pt-4 border-t border-neutral-200 dark:border-neutral-700">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                  Patient Name *
+                </label>
+                <input
+                  type="text"
+                  value={otherPatientDetails.name}
+                  onChange={(e) => setOtherPatientDetails({ ...otherPatientDetails, name: e.target.value })}
+                  placeholder="Enter patient's full name"
+                  className="w-full px-4 py-2 rounded-lg border border-neutral-300 dark:border-neutral-600
+                    bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100
+                    focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                    Age *
+                  </label>
+                  <input
+                    type="number"
+                    value={otherPatientDetails.age}
+                    onChange={(e) => setOtherPatientDetails({ ...otherPatientDetails, age: e.target.value })}
+                    placeholder="Age"
+                    min="0"
+                    max="150"
+                    className="w-full px-4 py-2 rounded-lg border border-neutral-300 dark:border-neutral-600
+                      bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100
+                      focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                    Gender *
+                  </label>
+                  <select
+                    value={otherPatientDetails.gender}
+                    onChange={(e) => setOtherPatientDetails({ ...otherPatientDetails, gender: e.target.value as 'male' | 'female' | 'other' })}
+                    className="w-full px-4 py-2 rounded-lg border border-neutral-300 dark:border-neutral-600
+                      bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100
+                      focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  >
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-1">
+                  Phone Number *
+                </label>
+                <input
+                  type="tel"
+                  value={otherPatientDetails.phone}
+                  onChange={(e) => setOtherPatientDetails({ ...otherPatientDetails, phone: e.target.value })}
+                  placeholder="+91 9876543210"
+                  className="w-full px-4 py-2 rounded-lg border border-neutral-300 dark:border-neutral-600
+                    bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100
+                    focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  required
+                />
+              </div>
+
+              <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                * These details will be used for the appointment and OTP verification
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Booking Steps */}

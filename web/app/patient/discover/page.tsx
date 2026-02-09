@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic'
 import { Search, MapPin, Star, Clock, AlertCircle, Navigation, Loader2, Mic } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
 import { VoiceSearchInline } from '@/components/search/VoiceSearchButton'
+import { VirtualizedDoctorList } from '@/components/VirtualizedDoctorList'
 import type { Doctor } from '../../../../shared/types'
 import { SPECIALIZATIONS } from '../../../../shared/constants'
 import { formatCurrency, formatLocationDistance } from '@/lib/utils/format'
@@ -36,6 +37,7 @@ export default function DiscoverPage() {
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null)
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list')
   const [isLoading, setIsLoading] = useState(true)
+  const [maxDistance, setMaxDistance] = useState<number | null>(null) // in meters: 5000, 10000, 25000
 
   useEffect(() => {
     // Request location permission with error handling
@@ -207,8 +209,16 @@ export default function DiscoverPage() {
       filtered = filtered.filter((doctor) => doctor.emergencyAvailable)
     }
 
+    // Filter by distance
+    if (maxDistance && userLocation) {
+      filtered = filtered.filter((doctor) => {
+        const distance = calculateDistance(doctor)
+        return distance !== null && distance <= maxDistance
+      })
+    }
+
     setFilteredDoctors(filtered)
-  }, [searchQuery, selectedSpecialty, showEmergencyOnly, doctors])
+  }, [searchQuery, selectedSpecialty, showEmergencyOnly, maxDistance, doctors, userLocation])
 
   const handleBookAppointment = (doctor: Doctor) => {
     try {
@@ -342,6 +352,41 @@ export default function DiscoverPage() {
               <AlertCircle className="w-4 h-4" />
               <span>Emergency Only</span>
             </button>
+
+            {/* Distance Filters */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-neutral-600 dark:text-neutral-400">Within:</span>
+              <button
+                onClick={() => setMaxDistance(maxDistance === 5000 ? null : 5000)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  maxDistance === 5000
+                    ? 'bg-sky-500 text-white'
+                    : 'border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700'
+                }`}
+              >
+                5km
+              </button>
+              <button
+                onClick={() => setMaxDistance(maxDistance === 10000 ? null : 10000)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  maxDistance === 10000
+                    ? 'bg-sky-500 text-white'
+                    : 'border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700'
+                }`}
+              >
+                10km
+              </button>
+              <button
+                onClick={() => setMaxDistance(maxDistance === 25000 ? null : 25000)}
+                className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  maxDistance === 25000
+                    ? 'bg-sky-500 text-white'
+                    : 'border border-neutral-300 dark:border-neutral-600 text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-neutral-700'
+                }`}
+              >
+                25km
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -349,33 +394,33 @@ export default function DiscoverPage() {
       {/* Content */}
       <div className="container mx-auto px-4 py-6">
         {viewMode === 'list' ? (
-          <div className="grid gap-4">
-            {filteredDoctors.length === 0 ? (
-              <div className="bg-white dark:bg-neutral-800 rounded-xl p-12 text-center border border-neutral-200 dark:border-neutral-700">
-                <Search className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
-                  No doctors found
-                </h3>
-                <p className="text-neutral-600 dark:text-neutral-400 mb-4">
-                  Try adjusting your search or filters to find doctors.
-                </p>
-                <button
-                  onClick={() => {
-                    setSearchQuery('')
-                    setSelectedSpecialty('')
-                    setShowEmergencyOnly(false)
-                  }}
-                  className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
-                >
-                  Clear Filters
-                </button>
-              </div>
-            ) : (
-              filteredDoctors.map((doctor) => {
-                const distance = calculateDistance(doctor)
-                return (
+          filteredDoctors.length === 0 ? (
+            <div className="bg-white dark:bg-neutral-800 rounded-xl p-12 text-center border border-neutral-200 dark:border-neutral-700">
+              <Search className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100 mb-2">
+                No doctors found
+              </h3>
+              <p className="text-neutral-600 dark:text-neutral-400 mb-4">
+                Try adjusting your search or filters to find doctors.
+              </p>
+              <button
+                onClick={() => {
+                  setSearchQuery('')
+                  setSelectedSpecialty('')
+                  setShowEmergencyOnly(false)
+                  setMaxDistance(null)
+                }}
+                className="px-4 py-2 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors"
+              >
+                Clear Filters
+              </button>
+            </div>
+          ) : (
+            <VirtualizedDoctorList
+                doctors={filteredDoctors}
+                calculateDistance={calculateDistance}
+                renderItem={(doctor, distance) => (
                   <div
-                    key={doctor.id}
                     id={`doctor-${doctor.id}`}
                     className="bg-white dark:bg-neutral-800 rounded-xl p-6 border border-neutral-200 dark:border-neutral-700 hover:shadow-lg transition-shadow"
                   >
@@ -439,10 +484,9 @@ export default function DiscoverPage() {
                       </div>
                     </div>
                   </div>
-                )
-              })
-            )}
-          </div>
+                )}
+              />
+          )
         ) : (
           <div className="h-[calc(100vh-300px)] min-h-[400px] rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700">
             <DoctorMap

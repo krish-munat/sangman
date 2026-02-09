@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ShieldCheck, Lock, Clock, CheckCircle, AlertTriangle, ArrowRight, MessageCircle } from 'lucide-react'
 import { EscrowStatus, getEscrowStatusLabel, getEscrowStatusColor, useEscrowStore } from '@/lib/store/escrowStore'
@@ -86,9 +87,15 @@ export function EscrowAppointmentCard({
 
         {/* Doctor Info */}
         <div className="flex gap-4 relative z-10">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-sky-400 to-emerald-400 flex items-center justify-center text-white text-xl font-bold ring-2 ring-white shadow-lg">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-sky-400 to-emerald-400 flex items-center justify-center text-white text-xl font-bold ring-2 ring-white shadow-lg overflow-hidden">
             {doctor.image ? (
-              <img src={doctor.image} alt={doctor.name} className="w-full h-full rounded-full object-cover" />
+              <Image
+                src={doctor.image}
+                alt={doctor.name}
+                width={64}
+                height={64}
+                className="w-full h-full rounded-full object-cover"
+              />
             ) : (
               doctor.name.charAt(0)
             )}

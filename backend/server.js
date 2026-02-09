@@ -1,19 +1,77 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const morgan = require('morgan');
+const compression = require('compression');
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const { body, validationResult } = require('express-validator');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'sangman-secret-key-change-in-production';
+const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// Middleware
+// Security: Warn if using default JWT secret
+if (JWT_SECRET === 'sangman-secret-key-change-in-production' && NODE_ENV === 'production') {
+  console.error('⚠️  WARNING: Using default JWT_SECRET in production! Set JWT_SECRET environment variable.');
+}
+
+// Security Middleware
+app.use(helmet()); // Security headers
+app.use(compression()); // Compress responses
+
+// CORS Configuration
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
 }));
-app.use(express.json());
+
+// Body parser with size limits
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Request logging
+if (NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+} else {
+  app.use(morgan('combined'));
+}
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Strict rate limiting for OTP endpoints
+const otpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // 5 OTP requests per 15 minutes
+  message: 'Too many OTP requests, please try again later.',
+});
+
+// Apply general rate limiter to all routes
+app.use('/api/', limiter);
 
 // In-memory database (replace with actual database in production)
 const db = {
@@ -23,6 +81,29 @@ const db = {
   appointments: [],
   otps: new Map(),
 };
+
+// Utility Functions
+function generateSecureOTP(length = 6) {
+  // Generate cryptographically secure random OTP
+  const min = Math.pow(10, length - 1);
+  const max = Math.pow(10, length) - 1;
+  return crypto.randomInt(min, max + 1).toString();
+}
+
+function validatePassword(password) {
+  // Minimum 8 characters, at least one letter and one number
+  const minLength = 8;
+  if (!password || password.length < minLength) {
+    return { valid: false, message: 'Password must be at least 8 characters long' };
+  }
+  if (!/[a-zA-Z]/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one letter' };
+  }
+  if (!/[0-9]/.test(password)) {
+    return { valid: false, message: 'Password must contain at least one number' };
+  }
+  return { valid: true };
+}
 
 // Seed some initial data
 seedDatabase();
@@ -223,13 +304,26 @@ function authenticateToken(req, res, next) {
 // ================== AUTH ROUTES ==================
 
 // Register
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', [
+  body('name').trim().notEmpty().withMessage('Name is required'),
+  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('phone').isMobilePhone().withMessage('Valid phone number is required'),
+  body('password').notEmpty().withMessage('Password is required'),
+  body('role').optional().isIn(['patient', 'doctor']).withMessage('Invalid role'),
+], async (req, res) => {
   try {
+    // Validate input
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ message: 'Validation failed', errors: errors.array() });
+    }
+
     const { name, email, phone, password, role = 'patient' } = req.body;
 
-    // Validate input
-    if (!name || !email || !phone || !password) {
-      return res.status(400).json({ message: 'All fields are required' });
+    // Validate password strength
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ message: passwordValidation.message });
     }
 
     // Check if user exists
@@ -528,7 +622,7 @@ app.post('/api/appointments', authenticateToken, (req, res) => {
     const totalAmount = baseFee + platformFee;
 
     // Generate OTP for appointment
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = generateSecureOTP(6);
 
     const appointment = {
       id: `apt-${uuidv4()}`,
@@ -780,7 +874,17 @@ app.post('/api/admin/verifications/:id', authenticateToken, (req, res) => {
 // ================== OTP ROUTES ==================
 
 // Send OTP
-app.post('/api/otp/send', (req, res) => {
+app.post('/api/otp/send', otpLimiter, [
+  body('phone').optional().isMobilePhone().withMessage('Invalid phone number'),
+  body('email').optional().isEmail().withMessage('Invalid email address'),
+  body('channel').isIn(['sms', 'email']).withMessage('Channel must be sms or email'),
+], (req, res) => {
+  // Validate input
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ message: 'Validation failed', errors: errors.array() });
+  }
+
   const { phone, email, channel } = req.body;
   const identifier = channel === 'sms' ? phone : email;
 
@@ -788,11 +892,12 @@ app.post('/api/otp/send', (req, res) => {
     return res.status(400).json({ message: 'Phone or email is required' });
   }
 
-  // Generate 6-digit OTP
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+  // Generate secure 6-digit OTP
+  const otp = generateSecureOTP(6);
+  const expiryMinutes = parseInt(process.env.OTP_EXPIRY_MINUTES) || 10;
+  const expiresAt = new Date(Date.now() + expiryMinutes * 60 * 1000);
 
-  db.otps.set(identifier, { otp, expiresAt });
+  db.otps.set(identifier, { otp, expiresAt, attempts: 0 });
 
   console.log(`[OTP] Sent ${otp} to ${identifier}`);
 
@@ -805,7 +910,16 @@ app.post('/api/otp/send', (req, res) => {
 });
 
 // Verify OTP
-app.post('/api/otp/verify', (req, res) => {
+app.post('/api/otp/verify', otpLimiter, [
+  body('identifier').notEmpty().withMessage('Identifier is required'),
+  body('otp').isLength({ min: 6, max: 6 }).isNumeric().withMessage('OTP must be 6 digits'),
+], (req, res) => {
+  // Validate input
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ success: false, message: 'Validation failed', errors: errors.array() });
+  }
+
   const { identifier, otp } = req.body;
 
   const storedOTP = db.otps.get(identifier);
@@ -819,7 +933,15 @@ app.post('/api/otp/verify', (req, res) => {
     return res.status(400).json({ success: false, message: 'OTP expired' });
   }
 
+  // Check attempts to prevent brute force
+  if (storedOTP.attempts >= 3) {
+    db.otps.delete(identifier);
+    return res.status(429).json({ success: false, message: 'Too many failed attempts. Please request a new OTP.' });
+  }
+
   if (otp !== storedOTP.otp) {
+    storedOTP.attempts = (storedOTP.attempts || 0) + 1;
+    db.otps.set(identifier, storedOTP);
     return res.status(400).json({ success: false, message: 'Invalid OTP' });
   }
 
@@ -1128,12 +1250,66 @@ function determineUrgencyLevel(severity, symptoms) {
 // ================== HEALTH CHECK ==================
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    environment: NODE_ENV,
+    uptime: process.uptime(),
+  });
+});
+
+// ================== ERROR HANDLING ==================
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({
+    message: 'Route not found',
+    path: req.path,
+  });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+
+  // Handle specific error types
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({
+      message: 'Validation error',
+      errors: err.errors,
+    });
+  }
+
+  if (err.name === 'JsonWebTokenError') {
+    return res.status(401).json({
+      message: 'Invalid token',
+    });
+  }
+
+  if (err.name === 'TokenExpiredError') {
+    return res.status(401).json({
+      message: 'Token expired',
+    });
+  }
+
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({
+      message: 'CORS policy violation',
+    });
+  }
+
+  // Default error response
+  res.status(err.status || 500).json({
+    message: err.message || 'Internal server error',
+    ...(NODE_ENV === 'development' && { stack: err.stack }),
+  });
 });
 
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 SANGMAN Backend API running on http://localhost:${PORT}`);
   console.log(`📋 Health check: http://localhost:${PORT}/api/health`);
+  console.log(`🌍 Environment: ${NODE_ENV}`);
+  console.log(`🔐 JWT Secret: ${JWT_SECRET === 'sangman-secret-key-change-in-production' ? '⚠️  DEFAULT (change for production)' : '✓ Custom'}`);
 });
 

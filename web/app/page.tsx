@@ -22,11 +22,7 @@ import {
 import { useState, useEffect } from 'react'
 
 export default function LandingPage() {
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  // Removed unnecessary mounted state for better performance
 
   return (
     <div className="min-h-screen bg-white overflow-hidden">
@@ -57,19 +53,21 @@ export default function LandingPage() {
           <Link href="#hospitals" className="text-gray-600 hover:text-sky-600 transition-colors font-medium">
             For Hospitals
           </Link>
-          <Link href="/auth/login?role=doctor" className="text-gray-600 hover:text-sky-600 transition-colors font-medium">
+          <Link href="/auth/login?role=doctor" prefetch={true} className="text-gray-600 hover:text-sky-600 transition-colors font-medium">
             Doctor Login
           </Link>
         </div>
         <div className="flex items-center gap-3">
           <Link
             href="/auth/login"
+            prefetch={true}
             className="hidden sm:block px-5 py-2.5 text-sky-600 font-semibold hover:text-sky-700 transition-colors"
           >
             Log in
           </Link>
           <Link
             href="/auth/register"
+            prefetch={true}
             className="px-5 py-2.5 bg-gradient-to-r from-sky-500 to-emerald-500 text-white font-semibold rounded-xl hover:from-sky-600 hover:to-emerald-600 transition-all shadow-lg shadow-sky-500/25 hover:shadow-sky-500/40"
           >
             Get Started
@@ -96,15 +94,17 @@ export default function LandingPage() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
-            <Link 
-              href="/auth/register?role=patient" 
+            <Link
+              href="/auth/register?role=patient"
+              prefetch={true}
               className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-sky-500 to-emerald-500 text-white font-semibold text-lg rounded-2xl hover:from-sky-600 hover:to-emerald-600 transition-all shadow-xl shadow-sky-500/30 hover:shadow-sky-500/50 hover:scale-105"
             >
               Book Appointment
               <ArrowRight className="w-5 h-5" />
             </Link>
-            <Link 
-              href="/auth/register?role=doctor" 
+            <Link
+              href="/auth/register?role=doctor"
+              prefetch={true}
               className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-gray-700 font-semibold text-lg rounded-2xl border-2 border-gray-200 hover:border-sky-500 hover:text-sky-600 transition-all shadow-lg hover:shadow-xl"
             >
               Join as Doctor / Hospital
@@ -433,15 +433,17 @@ export default function LandingPage() {
             Join thousands of patients and healthcare providers who trust Sangman for seamless care delivery.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link 
-              href="/auth/register?role=patient" 
+            <Link
+              href="/auth/register?role=patient"
+              prefetch={true}
               className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-sky-600 font-semibold text-lg rounded-2xl hover:bg-gray-50 transition-all shadow-xl hover:scale-105"
             >
               Start as Patient
               <ArrowRight className="w-5 h-5" />
             </Link>
-            <Link 
-              href="/auth/register?role=doctor" 
+            <Link
+              href="/auth/register?role=doctor"
+              prefetch={true}
               className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-transparent text-white font-semibold text-lg rounded-2xl border-2 border-white hover:bg-white/10 transition-all"
             >
               Register Hospital / Clinic
@@ -468,8 +470,8 @@ export default function LandingPage() {
             <div>
               <h4 className="font-semibold mb-4 text-lg">For Patients</h4>
               <ul className="space-y-3 text-slate-400">
-                <li><Link href="/patient/discover" className="hover:text-white transition-colors">Find Doctors</Link></li>
-                <li><Link href="/auth/register?role=patient" className="hover:text-white transition-colors">Create Account</Link></li>
+                <li><Link href="/patient/discover" prefetch={true} className="hover:text-white transition-colors">Find Doctors</Link></li>
+                <li><Link href="/auth/register?role=patient" prefetch={true} className="hover:text-white transition-colors">Create Account</Link></li>
                 <li><Link href="/patient/health-content" className="hover:text-white transition-colors">Health Tips</Link></li>
                 <li><Link href="/patient/subscription" className="hover:text-white transition-colors">Subscription Plans</Link></li>
               </ul>
@@ -477,8 +479,8 @@ export default function LandingPage() {
             <div>
               <h4 className="font-semibold mb-4 text-lg">For Doctors & Hospitals</h4>
               <ul className="space-y-3 text-slate-400">
-                <li><Link href="/auth/register?role=doctor" className="hover:text-white transition-colors">Join as Doctor</Link></li>
-                <li><Link href="/auth/login?role=doctor" className="hover:text-white transition-colors">Doctor Login</Link></li>
+                <li><Link href="/auth/register?role=doctor" prefetch={true} className="hover:text-white transition-colors">Join as Doctor</Link></li>
+                <li><Link href="/auth/login?role=doctor" prefetch={true} className="hover:text-white transition-colors">Doctor Login</Link></li>
                 <li><Link href="/doctor/verification" className="hover:text-white transition-colors">Get Verified</Link></li>
               </ul>
             </div>

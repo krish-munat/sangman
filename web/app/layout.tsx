@@ -6,7 +6,12 @@ import { IntlClientProvider } from '@/components/providers/IntlClientProvider'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
 import { Toaster } from 'react-hot-toast'
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap', // Prevents invisible text during font load
+  preload: true,
+  variable: '--font-inter',
+})
 
 export const metadata: Metadata = {
   title: 'SANGMAN - Your Trusted Healthcare Partner',

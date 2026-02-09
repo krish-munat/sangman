@@ -2,16 +2,29 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { 
-  Calendar, Search, AlertCircle, TrendingUp, Clock, 
+import dynamic from 'next/dynamic'
+import {
+  Calendar, Search, AlertCircle, TrendingUp, Clock,
   Zap, FlaskConical, Pill, FileText, Heart, Mic,
-  Stethoscope, ChevronRight, Sparkles, Shield
+  Stethoscope, ChevronRight, Sparkles, Shield, PhoneCall, Droplet
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
 import { useAppointmentStore } from '@/lib/store/appointmentStore'
 import { formatDate } from '@/lib/utils/format'
-import VoiceSearchInput from '@/components/search/VoiceSearchInput'
 import type { Appointment } from '../../../shared/types'
+
+// Lazy load VoiceSearchInput (non-critical, heavy dependency)
+const VoiceSearchInput = dynamic(() => import('@/components/search/VoiceSearchInput'), {
+  ssr: false,
+  loading: () => (
+    <input
+      type="text"
+      placeholder="Loading search..."
+      className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600"
+      disabled
+    />
+  )
+})
 
 export default function PatientHomePage() {
   const { user } = useAuthStore()
@@ -105,6 +118,31 @@ export default function PatientHomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-sky-50 dark:from-slate-900 dark:to-slate-800 py-8">
+      {/* Emergency Action Bar - Top Right */}
+      <div className="fixed top-20 right-4 z-50 flex flex-col gap-3">
+        {/* Ambulance Button */}
+        <button
+          onClick={() => window.location.href = 'tel:108'}
+          className="w-14 h-14 bg-red-500 hover:bg-red-600 rounded-full shadow-lg
+            flex items-center justify-center group transition-all hover:scale-110
+            active:scale-95"
+          title="Call Ambulance (108)"
+        >
+          <PhoneCall className="w-7 h-7 text-white" />
+        </button>
+
+        {/* Blood Donation Button */}
+        <Link
+          href="/patient/blood-donation"
+          className="w-14 h-14 bg-rose-500 hover:bg-rose-600 rounded-full shadow-lg
+            flex items-center justify-center group transition-all hover:scale-110
+            active:scale-95"
+          title="Blood Donation"
+        >
+          <Droplet className="w-7 h-7 text-white" />
+        </Link>
+      </div>
+
       <div className="container mx-auto px-4 max-w-7xl">
         {/* Welcome Section with Voice Search */}
         <div className="mb-8">
@@ -150,7 +188,8 @@ export default function PatientHomePage() {
                 <Link
                   key={service.title}
                   href={service.href}
-                  className="relative bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm 
+                  prefetch={true}
+                  className="relative bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm
                     hover:shadow-lg transition-all border border-gray-100 dark:border-gray-700
                     group overflow-hidden"
                 >
@@ -264,7 +303,8 @@ export default function PatientHomePage() {
                 <Link
                   key={action.title}
                   href={action.href}
-                  className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm 
+                  prefetch={true}
+                  className="bg-white dark:bg-gray-800 rounded-xl p-5 shadow-sm
                     hover:shadow-md transition-all border border-gray-100 dark:border-gray-700
                     flex items-center gap-4"
                 >
